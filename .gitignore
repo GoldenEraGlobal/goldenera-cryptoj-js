@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test vectors generator (Java)
+test-vectors-java/target/
+
+# Generated test vectors (regenerated on each test run)
+src/__tests__/testVectors.generated.ts
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+target/
