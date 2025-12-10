@@ -28,15 +28,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Set up JDK 21 (for test vector generation)
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
+          distribution: "temurin"
+          java-version: "21"
+          cache: "maven"
 
       - name: Configure Maven for GitHub Packages
         run: |
@@ -66,10 +66,10 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # Release for main branch - stable versions (0.0.1, 0.0.2, ...)
   release:
     runs-on: ubuntu-latest
     needs: build
-    # Run only on push to main branch
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -77,6 +77,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -86,9 +89,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "22"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -99,30 +102,53 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Extract version from package.json
-        id: extract_version
+      - name: Configure Git
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Extracted version: $VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Check if version exists on npm
-        id: check_version
+      - name: Get current version and check npm
+        id: version_check
         run: |
           PACKAGE_NAME=$(node -p "require('./package.json').name")
-          if npm view "$PACKAGE_NAME@${{ env.VERSION }}" version 2>/dev/null; then
-            echo "version_exists=true" >> $GITHUB_ENV
-            echo "⚠️ Version ${{ env.VERSION }} already exists on npm"
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+
+          # Check if version exists on npm
+          if npm view "$PACKAGE_NAME@$CURRENT_VERSION" version 2>/dev/null; then
+            echo "VERSION_EXISTS=true" >> $GITHUB_ENV
+            echo "⚠️ Version $CURRENT_VERSION already exists on npm"
           else
-            echo "version_exists=false" >> $GITHUB_ENV
-            echo "✅ Version ${{ env.VERSION }} does not exist on npm yet"
+            echo "VERSION_EXISTS=false" >> $GITHUB_ENV
+            echo "✅ Version $CURRENT_VERSION is available"
           fi
-        continue-on-error: true
+
+      - name: Bump patch version if needed
+        if: env.VERSION_EXISTS == 'true'
+        run: |
+          echo "Bumping patch version..."
+          # Bump patch version
+          npm version patch --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "📦 Bumped version to $NEW_VERSION"
+
+          # Commit the version bump
+          git add package.json
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          git push
+
+      - name: Set final version
+        run: |
+          FINAL_VERSION=$(node -p "require('./package.json').version")
+          echo "FINAL_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
+          echo "📦 Publishing version: $FINAL_VERSION"
 
       - name: Generate Release Notes
         run: |
           cat > RELEASE_NOTES.md << 'EOF'
-          # @goldenera/cryptoj v${{ env.VERSION }}
+          # @goldenera/cryptoj v${{ env.FINAL_VERSION }}
 
           ## Installation
 
@@ -144,36 +170,120 @@ jobs:
           EOF
 
       - name: Check if release exists
-        id: check_release
         run: |
-          if gh release view "v${{ env.VERSION }}" > /dev/null 2>&1; then
-            echo "release_exists=true" >> $GITHUB_ENV
-            echo "⚠️ Release v${{ env.VERSION }} already exists"
+          if gh release view "v${{ env.FINAL_VERSION }}" > /dev/null 2>&1; then
+            echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
           else
-            echo "release_exists=false" >> $GITHUB_ENV
-            echo "✅ Release v${{ env.VERSION }} does not exist yet"
+            echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
           fi
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Delete existing release if it exists
-        if: env.release_exists == 'true'
-        run: |
-          echo "Deleting existing release v${{ env.VERSION }}"
-          gh release delete "v${{ env.VERSION }}" --yes --cleanup-tag
+      - name: Delete existing release if exists
+        if: env.RELEASE_EXISTS == 'true'
+        run: gh release delete "v${{ env.FINAL_VERSION }}" --yes --cleanup-tag
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Create GitHub Release
         run: |
-          gh release create "v${{ env.VERSION }}" \
-            --title "@goldenera/cryptoj v${{ env.VERSION }}" \
+          gh release create "v${{ env.FINAL_VERSION }}" \
+            --title "@goldenera/cryptoj v${{ env.FINAL_VERSION }}" \
             --notes-file RELEASE_NOTES.md
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Publish to npm
-        if: env.version_exists == 'false'
         run: pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Release for develop branch - dev versions (0.0.1-dev.1, 0.0.1-dev.2, ...)
+  release-dev:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Calculate dev version
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          BASE_VERSION=$(node -p "require('./package.json').version")
+
+          # Remove any existing prerelease suffix to get base version
+          BASE_VERSION=$(echo "$BASE_VERSION" | sed 's/-.*$//')
+
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+          echo "BASE_VERSION=$BASE_VERSION" >> $GITHUB_ENV
+
+          # Find the next available dev version number
+          DEV_NUM=1
+          while true; do
+            DEV_VERSION="${BASE_VERSION}-dev.${DEV_NUM}"
+            if npm view "$PACKAGE_NAME@$DEV_VERSION" version 2>/dev/null; then
+              echo "Version $DEV_VERSION exists, trying next..."
+              DEV_NUM=$((DEV_NUM + 1))
+            else
+              echo "✅ Found available version: $DEV_VERSION"
+              break
+            fi
+          done
+
+          echo "DEV_VERSION=$DEV_VERSION" >> $GITHUB_ENV
+          echo "📦 Will publish dev version: $DEV_VERSION"
+
+      - name: Update package.json with dev version
+        run: |
+          # Update version in package.json (without committing)
+          npm version "${{ env.DEV_VERSION }}" --no-git-tag-version
+          echo "Updated package.json to version ${{ env.DEV_VERSION }}"
+
+      - name: Publish to npm with dev tag
+        run: pnpm publish --access public --no-git-checks --tag dev
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## 🚀 Dev Release Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ env.DEV_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Install" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "npm install ${{ env.PACKAGE_NAME }}@dev" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
