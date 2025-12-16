@@ -162,31 +162,31 @@ export class TxBuilder {
   }
 
   /** Set message from bytes */
-  message(message: Uint8Array): this {
+  message(message: Uint8Array | null): this {
     this._message = message;
     return this;
   }
 
   /** Set message from string (UTF-8 encoded) */
-  messageString(message: string): this {
-    this._message = new TextEncoder().encode(message);
+  messageString(message: string | null): this {
+    this._message = message ? new TextEncoder().encode(message) : null;
     return this;
   }
 
   /** Set message from hex string */
-  messageHex(message: Hex): this {
-    this._message = hexToBytes(message);
+  messageHex(message: Hex | null): this {
+    this._message = message ? hexToBytes(message) : null;
     return this;
   }
 
   /** Set BIP payload */
-  payload(payload: TxPayload): this {
+  payload(payload: TxPayload | null): this {
     this._payload = payload;
     return this;
   }
 
   /** Set reference hash (for BIP_VOTE) */
-  referenceHash(hash: Hash): this {
+  referenceHash(hash: Hash | null): this {
     this._referenceHash = hash;
     return this;
   }

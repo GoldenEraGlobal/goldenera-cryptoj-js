@@ -23,6 +23,8 @@ import {
   createTokenCreatePayload,
   createTokenMintPayload,
   createTokenUpdatePayload,
+  createValidatorAddPayload,
+  createValidatorRemovePayload,
   createVotePayload,
 } from '../tx/payloads';
 import { TxBuilder } from '../tx/TxBuilder';
@@ -257,6 +259,46 @@ describe('Compatibility Tests', () => {
     });
   });
 
+  describe('BIP Validator Payloads', () => {
+    it('bip_validator_add', () => {
+      const vector = testVectors.find((v) => v.name === 'bip_validator_add')!;
+
+      const tx = TxBuilder.create()
+        .version(TxVersion.V1)
+        .type(TxType.BIP_CREATE)
+        .network(Network.MAINNET)
+        .timestamp(Number(vector.timestamp))
+        .nonce(18n)
+        .fee(Amounts.parseTokens('0.01'))
+        .payload(createValidatorAddPayload(
+          '0x9999999999999999999999999999999999999999' as Address
+        ))
+        .sign(privateKey);
+
+      expect(tx.signature.toLowerCase()).toBe(vector.expected.signature.toLowerCase());
+      expect(tx.hash.toLowerCase()).toBe(vector.expected.txHash.toLowerCase());
+    });
+
+    it('bip_validator_remove', () => {
+      const vector = testVectors.find((v) => v.name === 'bip_validator_remove')!;
+
+      const tx = TxBuilder.create()
+        .version(TxVersion.V1)
+        .type(TxType.BIP_CREATE)
+        .network(Network.MAINNET)
+        .timestamp(Number(vector.timestamp))
+        .nonce(19n)
+        .fee(Amounts.parseTokens('0.01'))
+        .payload(createValidatorRemovePayload(
+          '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address
+        ))
+        .sign(privateKey);
+
+      expect(tx.signature.toLowerCase()).toBe(vector.expected.signature.toLowerCase());
+      expect(tx.hash.toLowerCase()).toBe(vector.expected.txHash.toLowerCase());
+    });
+  });
+
   describe('BIP Network Params Payload', () => {
     it('bip_network_params_set', () => {
       const vector = testVectors.find((v) => v.name === 'bip_network_params_set')!;
@@ -266,7 +308,7 @@ describe('Compatibility Tests', () => {
         .type(TxType.BIP_CREATE)
         .network(Network.MAINNET)
         .timestamp(Number(vector.timestamp))
-        .nonce(18n)
+        .nonce(20n)
         .fee(Amounts.parseTokens('0.01'))
         .payload(createNetworkParamsSetPayload({
           blockReward: Amounts.tokens(50n),

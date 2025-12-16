@@ -62,7 +62,7 @@ export function encodePayload(payload: TxPayload | null, _version: TxVersion): U
       writeOptionalString(writer, p.websiteUrl || null);
       writeOptionalString(writer, p.logoUrl || null);
       // maxSupply is optional BigInteger in Java
-      writeOptionalBigInteger(writer, p.maxSupply);
+      writeOptionalBigInteger(writer, p.maxSupply || null);
       writer.writeIntScalar(p.userBurnable ? 1 : 0);
       break;
     }
@@ -70,10 +70,10 @@ export function encodePayload(payload: TxPayload | null, _version: TxVersion): U
     case TxPayloadType.BIP_TOKEN_UPDATE: {
       const p = payload as AnyTxPayload & { payloadType: TxPayloadType.BIP_TOKEN_UPDATE };
       writer.writeBytes(hexToBytes(p.tokenAddress));
-      writeOptionalString(writer, p.name);
-      writeOptionalString(writer, p.smallestUnitName);
-      writeOptionalString(writer, p.websiteUrl);
-      writeOptionalString(writer, p.logoUrl);
+      writeOptionalString(writer, p.name || null);
+      writeOptionalString(writer, p.smallestUnitName || null);
+      writeOptionalString(writer, p.websiteUrl || null);
+      writeOptionalString(writer, p.logoUrl || null);
       break;
     }
 
@@ -106,6 +106,18 @@ export function encodePayload(payload: TxPayload | null, _version: TxVersion): U
     case TxPayloadType.BIP_AUTHORITY_REMOVE: {
       const p = payload as AnyTxPayload & { payloadType: TxPayloadType.BIP_AUTHORITY_REMOVE };
       writer.writeBytes(hexToBytes(p.authorityAddress));
+      break;
+    }
+    
+    case TxPayloadType.BIP_VALIDATOR_ADD: {
+      const p = payload as AnyTxPayload & { payloadType: TxPayloadType.BIP_VALIDATOR_ADD };
+      writer.writeBytes(hexToBytes(p.validatorAddress));
+      break;
+    }
+
+    case TxPayloadType.BIP_VALIDATOR_REMOVE: {
+      const p = payload as AnyTxPayload & { payloadType: TxPayloadType.BIP_VALIDATOR_REMOVE };
+      writer.writeBytes(hexToBytes(p.validatorAddress));
       break;
     }
 
@@ -263,6 +275,18 @@ export function decodePayload(data: Uint8Array | unknown[], _version: TxVersion)
       return {
         payloadType: type,
         authorityAddress: decodeAddress(data[1] as Uint8Array),
+      };
+
+    case TxPayloadType.BIP_VALIDATOR_ADD:
+      return {
+        payloadType: type,
+        validatorAddress: decodeAddress(data[1] as Uint8Array),
+      };
+
+    case TxPayloadType.BIP_VALIDATOR_REMOVE:
+      return {
+        payloadType: type,
+        validatorAddress: decodeAddress(data[1] as Uint8Array),
       };
 
     case TxPayloadType.BIP_NETWORK_PARAMS_SET:

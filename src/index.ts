@@ -44,6 +44,7 @@ export type {
     AuthorityRemovePayload,
     NetworkParamsSetPayload, TokenBurnPayload,
     TokenCreatePayload, TokenMintPayload, TokenUpdatePayload,
+    ValidatorAddPayload, ValidatorRemovePayload,
     VotePayload
 } from './tx/payloads';
 export type { TxPayload } from './tx/payloads/TxPayload';
@@ -52,8 +53,7 @@ export {
     createAddressAliasAddPayload,
     createAddressAliasRemovePayload, createApprovalVote, createAuthorityAddPayload,
     createAuthorityRemovePayload, createDisapprovalVote, createNetworkParamsSetPayload, createTokenBurnPayload,
-    createTokenCreatePayload, createTokenMintPayload, createTokenUpdatePayload,
-    createVotePayload
+    createTokenCreatePayload, createTokenMintPayload, createTokenUpdatePayload, createValidatorAddPayload, createValidatorRemovePayload, createVotePayload
 } from './tx/payloads';
 
 // ============================================

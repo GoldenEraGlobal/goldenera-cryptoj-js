@@ -4,27 +4,30 @@
 
 export type { TxPayload } from './TxPayload';
 export type {
-    AddressAliasAddPayload,
-    AddressAliasRemovePayload, AnyTxPayload, AuthorityAddPayload,
-    AuthorityRemovePayload,
-    NetworkParamsSetPayload, TokenBurnPayload,
-    TokenCreatePayload, TokenMintPayload, TokenUpdatePayload,
-    VotePayload
+  AddressAliasAddPayload,
+  AddressAliasRemovePayload, AnyTxPayload, AuthorityAddPayload,
+  AuthorityRemovePayload,
+  NetworkParamsSetPayload, TokenBurnPayload,
+  TokenCreatePayload, TokenMintPayload, TokenUpdatePayload,
+  ValidatorAddPayload, ValidatorRemovePayload,
+  VotePayload
 } from './types';
 
 import { BipVoteType, TxPayloadType } from '../../enums';
 import type { Address } from '../../types';
 import type {
-    AddressAliasAddPayload,
-    AddressAliasRemovePayload,
-    AuthorityAddPayload,
-    AuthorityRemovePayload,
-    NetworkParamsSetPayload,
-    TokenBurnPayload,
-    TokenCreatePayload,
-    TokenMintPayload,
-    TokenUpdatePayload,
-    VotePayload,
+  AddressAliasAddPayload,
+  AddressAliasRemovePayload,
+  AuthorityAddPayload,
+  AuthorityRemovePayload,
+  NetworkParamsSetPayload,
+  TokenBurnPayload,
+  TokenCreatePayload,
+  TokenMintPayload,
+  TokenUpdatePayload,
+  ValidatorAddPayload,
+  ValidatorRemovePayload,
+  VotePayload,
 } from './types';
 
 // ============================================
@@ -70,9 +73,9 @@ export function createTokenCreatePayload(params: {
   name: string;
   smallestUnitName: string;
   numberOfDecimals: number;
-  websiteUrl?: string;
-  logoUrl?: string;
-  maxSupply: bigint;
+  websiteUrl?: string | null;
+  logoUrl?: string | null;
+  maxSupply?: bigint | null;
   userBurnable?: boolean;
 }): TokenCreatePayload {
   return {
@@ -80,9 +83,9 @@ export function createTokenCreatePayload(params: {
     name: params.name,
     smallestUnitName: params.smallestUnitName,
     numberOfDecimals: params.numberOfDecimals,
-    websiteUrl: params.websiteUrl ?? '',
-    logoUrl: params.logoUrl ?? '',
-    maxSupply: params.maxSupply,
+    websiteUrl: params.websiteUrl ?? null,
+    logoUrl: params.logoUrl ?? null,
+    maxSupply: params.maxSupply ?? null,
     userBurnable: params.userBurnable ?? false,
   };
 }
@@ -171,6 +174,26 @@ export function createAuthorityRemovePayload(authorityAddress: Address): Authori
   return {
     payloadType: TxPayloadType.BIP_AUTHORITY_REMOVE,
     authorityAddress,
+  };
+}
+
+/**
+ * Create an Validator Add payload.
+ */
+export function createValidatorAddPayload(validatorAddress: Address): ValidatorAddPayload {
+  return {
+    payloadType: TxPayloadType.BIP_VALIDATOR_ADD,
+    validatorAddress,
+  };
+}
+
+/**
+ * Create an Validator Remove payload.
+ */
+export function createValidatorRemovePayload(validatorAddress: Address): ValidatorRemovePayload {
+  return {
+    payloadType: TxPayloadType.BIP_VALIDATOR_REMOVE,
+    validatorAddress,
   };
 }
 

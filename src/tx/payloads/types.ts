@@ -38,9 +38,9 @@ export interface TokenCreatePayload extends TxPayload {
   readonly name: string;
   readonly smallestUnitName: string;
   readonly numberOfDecimals: number;
-  readonly websiteUrl: string;
-  readonly logoUrl: string;
-  readonly maxSupply: bigint;
+  readonly websiteUrl: string | null;
+  readonly logoUrl: string | null;
+  readonly maxSupply: bigint | null;
   readonly userBurnable: boolean;
 }
 
@@ -110,6 +110,26 @@ export interface AuthorityRemovePayload extends TxPayload {
 }
 
 // ============================================
+// Validator Payloads
+// ============================================
+
+/**
+ * Add validator payload.
+ */
+export interface ValidatorAddPayload extends TxPayload {
+  readonly payloadType: TxPayloadType.BIP_VALIDATOR_ADD;
+  readonly validatorAddress: Address;
+}
+
+/**
+ * Remove validator payload.
+ */
+export interface ValidatorRemovePayload extends TxPayload {
+  readonly payloadType: TxPayloadType.BIP_VALIDATOR_REMOVE;
+  readonly validatorAddress: Address;
+}
+
+// ============================================
 // Network Params Payload
 // ============================================
 
@@ -141,4 +161,6 @@ export type AnyTxPayload =
   | AddressAliasRemovePayload
   | AuthorityAddPayload
   | AuthorityRemovePayload
+  | ValidatorAddPayload
+  | ValidatorRemovePayload
   | NetworkParamsSetPayload;

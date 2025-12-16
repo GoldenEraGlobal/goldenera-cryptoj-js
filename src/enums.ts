@@ -63,6 +63,8 @@ export enum TxPayloadType {
   BIP_TOKEN_MINT = 7,
   BIP_TOKEN_UPDATE = 8,
   BIP_VOTE = 9,
+  BIP_VALIDATOR_ADD = 10,
+  BIP_VALIDATOR_REMOVE = 11,
 }
 
 export function txPayloadTypeFromCode(code: number): TxPayloadType {

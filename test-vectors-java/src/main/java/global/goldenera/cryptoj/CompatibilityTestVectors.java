@@ -40,6 +40,8 @@ import global.goldenera.cryptoj.common.payloads.bip.TxBipTokenBurnPayloadImpl;
 import global.goldenera.cryptoj.common.payloads.bip.TxBipTokenCreatePayloadImpl;
 import global.goldenera.cryptoj.common.payloads.bip.TxBipTokenMintPayloadImpl;
 import global.goldenera.cryptoj.common.payloads.bip.TxBipTokenUpdatePayloadImpl;
+import global.goldenera.cryptoj.common.payloads.bip.TxBipValidatorAddPayloadImpl;
+import global.goldenera.cryptoj.common.payloads.bip.TxBipValidatorRemovePayloadImpl;
 import global.goldenera.cryptoj.common.payloads.bip.TxBipVotePayloadImpl;
 import global.goldenera.cryptoj.datatypes.Address;
 import global.goldenera.cryptoj.datatypes.Hash;
@@ -89,6 +91,8 @@ public class CompatibilityTestVectors {
                 generateAddressAliasRemoveTest(privateKey);
                 generateAuthorityAddTest(privateKey);
                 generateAuthorityRemoveTest(privateKey);
+                generateValidatorAddTest(privateKey);
+                generateValidatorRemoveTest(privateKey);
                 generateNetworkParamsSetTest(privateKey);
 
                 // BIP Vote test
@@ -272,12 +276,42 @@ public class CompatibilityTestVectors {
                 printTestVector("bip_authority_remove", tx);
         }
 
-        private static void generateNetworkParamsSetTest(PrivateKey privateKey) throws Exception {
+        private static void generateValidatorAddTest(PrivateKey privateKey) throws Exception {
                 Tx tx = TxBuilder.create()
                                 .type(TxType.BIP_CREATE)
                                 .network(Network.MAINNET)
                                 .timestamp(Instant.ofEpochMilli(nextTimestamp()))
                                 .nonce(18L)
+                                .fee(Amounts.tokensDecimal("0.01"))
+                                .payload(TxBipValidatorAddPayloadImpl.builder()
+                                                .address(Address.fromHexString(
+                                                                "0x9999999999999999999999999999999999999999"))
+                                                .build())
+                                .sign(privateKey);
+                printTestVector("bip_validator_add", tx);
+        }
+
+        private static void generateValidatorRemoveTest(PrivateKey privateKey) throws Exception {
+                Tx tx = TxBuilder.create()
+                                .type(TxType.BIP_CREATE)
+                                .network(Network.MAINNET)
+                                .timestamp(Instant.ofEpochMilli(nextTimestamp()))
+                                .nonce(19L)
+                                .fee(Amounts.tokensDecimal("0.01"))
+                                .payload(TxBipValidatorRemovePayloadImpl.builder()
+                                                .address(Address.fromHexString(
+                                                                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+                                                .build())
+                                .sign(privateKey);
+                printTestVector("bip_validator_remove", tx);
+        }
+
+        private static void generateNetworkParamsSetTest(PrivateKey privateKey) throws Exception {
+                Tx tx = TxBuilder.create()
+                                .type(TxType.BIP_CREATE)
+                                .network(Network.MAINNET)
+                                .timestamp(Instant.ofEpochMilli(nextTimestamp()))
+                                .nonce(20L)
                                 .fee(Amounts.tokensDecimal("0.01"))
                                 .payload(TxBipNetworkParamsSetPayloadImpl.builder()
                                                 .blockReward(Amounts.tokens(50))
