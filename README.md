@@ -211,6 +211,8 @@ createAddressAliasAddPayload(address, alias)
 createAddressAliasRemovePayload(alias)
 createAuthorityAddPayload(authorityAddress)
 createAuthorityRemovePayload(authorityAddress)
+createValidatorAddPayload(validatorAddress)
+createValidatorRemovePayload(validatorAddress)
 createNetworkParamsSetPayload({ blockReward?, ... })
 ```
 
