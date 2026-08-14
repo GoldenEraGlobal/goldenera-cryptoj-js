@@ -2,7 +2,12 @@
  * BIP Payload type definitions.
  */
 
-import type { BipVoteType, TxPayloadType } from '../../enums';
+import type {
+  BipVoteType,
+  MiningLimitMode,
+  TxPayloadType,
+  TxPayloadVersion,
+} from '../../enums';
 import type { Address } from '../../types';
 import type { TxPayload } from './TxPayload';
 
@@ -15,6 +20,7 @@ import type { TxPayload } from './TxPayload';
  */
 export interface TokenMintPayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_TOKEN_MINT;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly tokenAddress: Address;
   readonly recipient: Address;
   readonly amount: bigint;
@@ -25,6 +31,7 @@ export interface TokenMintPayload extends TxPayload {
  */
 export interface TokenBurnPayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_TOKEN_BURN;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly tokenAddress: Address;
   readonly sender: Address;
   readonly amount: bigint;
@@ -35,6 +42,7 @@ export interface TokenBurnPayload extends TxPayload {
  */
 export interface TokenCreatePayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_TOKEN_CREATE;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly name: string;
   readonly smallestUnitName: string;
   readonly numberOfDecimals: number;
@@ -49,6 +57,7 @@ export interface TokenCreatePayload extends TxPayload {
  */
 export interface TokenUpdatePayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_TOKEN_UPDATE;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly tokenAddress: Address;
   readonly name: string | null;
   readonly smallestUnitName: string | null;
@@ -65,6 +74,7 @@ export interface TokenUpdatePayload extends TxPayload {
  */
 export interface VotePayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_VOTE;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly voteType: BipVoteType;
 }
 
@@ -77,6 +87,7 @@ export interface VotePayload extends TxPayload {
  */
 export interface AddressAliasAddPayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_ADDRESS_ALIAS_ADD;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly address: Address;
   readonly alias: string;
 }
@@ -86,6 +97,7 @@ export interface AddressAliasAddPayload extends TxPayload {
  */
 export interface AddressAliasRemovePayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_ADDRESS_ALIAS_REMOVE;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly alias: string;
 }
 
@@ -98,6 +110,7 @@ export interface AddressAliasRemovePayload extends TxPayload {
  */
 export interface AuthorityAddPayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_AUTHORITY_ADD;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly authorityAddress: Address;
 }
 
@@ -106,6 +119,7 @@ export interface AuthorityAddPayload extends TxPayload {
  */
 export interface AuthorityRemovePayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_AUTHORITY_REMOVE;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly authorityAddress: Address;
 }
 
@@ -116,16 +130,28 @@ export interface AuthorityRemovePayload extends TxPayload {
 /**
  * Add validator payload.
  */
-export interface ValidatorAddPayload extends TxPayload {
+export interface ValidatorAddPayloadV1 extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_VALIDATOR_ADD;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly validatorAddress: Address;
 }
+
+export interface ValidatorAddPayloadV2 extends TxPayload {
+  readonly payloadType: TxPayloadType.BIP_VALIDATOR_ADD;
+  readonly payloadVersion: TxPayloadVersion.V2;
+  readonly validatorAddress: Address;
+  readonly miningLimitMode: MiningLimitMode;
+  readonly maxMiningShareBps: bigint;
+}
+
+export type ValidatorAddPayload = ValidatorAddPayloadV1 | ValidatorAddPayloadV2;
 
 /**
  * Remove validator payload.
  */
 export interface ValidatorRemovePayload extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_VALIDATOR_REMOVE;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly validatorAddress: Address;
 }
 
@@ -136,8 +162,9 @@ export interface ValidatorRemovePayload extends TxPayload {
 /**
  * Set network parameters payload.
  */
-export interface NetworkParamsSetPayload extends TxPayload {
+export interface NetworkParamsSetPayloadV1 extends TxPayload {
   readonly payloadType: TxPayloadType.BIP_NETWORK_PARAMS_SET;
+  readonly payloadVersion: TxPayloadVersion.V1;
   readonly blockReward: bigint | null;
   readonly blockRewardPoolAddress: Address | null;
   readonly targetMiningTimeMs: bigint | null;
@@ -145,6 +172,29 @@ export interface NetworkParamsSetPayload extends TxPayload {
   readonly minDifficulty: bigint | null;
   readonly minTxBaseFee: bigint | null;
   readonly minTxByteFee: bigint | null;
+}
+
+export interface NetworkParamsSetPayloadV2 extends TxPayload {
+  readonly payloadType: TxPayloadType.BIP_NETWORK_PARAMS_SET;
+  readonly payloadVersion: TxPayloadVersion.V2;
+  readonly blockReward: bigint | null;
+  readonly blockRewardPoolAddress: Address | null;
+  readonly targetMiningTimeMs: bigint | null;
+  readonly asertHalfLifeBlocks: bigint | null;
+  readonly minDifficulty: bigint | null;
+  readonly minTxBaseFee: bigint | null;
+  readonly minTxByteFee: bigint | null;
+  readonly validatorMiningWindowBlocks: bigint | null;
+}
+
+export type NetworkParamsSetPayload = NetworkParamsSetPayloadV1 | NetworkParamsSetPayloadV2;
+
+export interface ValidatorMiningPolicySetPayload extends TxPayload {
+  readonly payloadType: TxPayloadType.BIP_VALIDATOR_MINING_POLICY_SET;
+  readonly payloadVersion: TxPayloadVersion.V1;
+  readonly validatorAddress: Address;
+  readonly miningLimitMode: MiningLimitMode;
+  readonly maxMiningShareBps: bigint;
 }
 
 // ============================================
@@ -163,4 +213,5 @@ export type AnyTxPayload =
   | AuthorityRemovePayload
   | ValidatorAddPayload
   | ValidatorRemovePayload
-  | NetworkParamsSetPayload;
+  | NetworkParamsSetPayload
+  | ValidatorMiningPolicySetPayload;

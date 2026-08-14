@@ -1,0 +1,37 @@
+import { MiningLimitMode } from '../enums';
+
+export const BASIS_POINTS_DENOMINATOR = 10_000n;
+export const MAX_VALIDATOR_MINING_SHARE_BPS = 4_000n;
+export const MIN_VALIDATOR_MINING_WINDOW_BLOCKS = 100n;
+export const MAX_VALIDATOR_MINING_WINDOW_BLOCKS = 10_000n;
+
+export function validateMiningPolicy(
+  mode: MiningLimitMode,
+  maxMiningShareBps: bigint
+): void {
+  if (mode === MiningLimitMode.UNLIMITED) {
+    if (maxMiningShareBps !== 0n) {
+      throw new Error('UNLIMITED mining policy requires maxMiningShareBps = 0');
+    }
+    return;
+  }
+  if (mode !== MiningLimitMode.LIMITED) {
+    throw new Error(`Unknown MiningLimitMode code: ${String(mode)}`);
+  }
+  if (maxMiningShareBps < 1n || maxMiningShareBps > MAX_VALIDATOR_MINING_SHARE_BPS) {
+    throw new Error(
+      `LIMITED mining policy requires maxMiningShareBps in range 1..${MAX_VALIDATOR_MINING_SHARE_BPS}`
+    );
+  }
+}
+
+export function validateMiningWindowSize(validatorMiningWindowBlocks: bigint): void {
+  if (
+    validatorMiningWindowBlocks < MIN_VALIDATOR_MINING_WINDOW_BLOCKS ||
+    validatorMiningWindowBlocks > MAX_VALIDATOR_MINING_WINDOW_BLOCKS
+  ) {
+    throw new Error(
+      `validatorMiningWindowBlocks must be in range ${MIN_VALIDATOR_MINING_WINDOW_BLOCKS}..${MAX_VALIDATOR_MINING_WINDOW_BLOCKS}`
+    );
+  }
+}

@@ -38,7 +38,11 @@ export function rlpDecode(input: Uint8Array): RLPDecoded {
  * This is the "scalar" encoding in RLP.
  */
 export function encodeScalar(value: bigint | number): Uint8Array {
-  const v = BigInt(value);
+  let v = BigInt(value);
+  if (v < 0n) {
+    if (v < -(1n << 63n)) throw new Error('Signed scalar is below Java long range');
+    v = BigInt.asUintN(64, v);
+  }
   if (v === 0n) {
     return new Uint8Array(0); // Empty bytes for zero
   }
@@ -62,6 +66,12 @@ export function decodeScalar(bytes: Uint8Array): bigint {
  */
 export function decodeInt(bytes: Uint8Array): number {
   return Number(decodeScalar(bytes));
+}
+
+/** Decode the Java RLP long-scalar representation, including two's-complement negatives. */
+export function decodeLong(bytes: Uint8Array): bigint {
+  const value = decodeScalar(bytes);
+  return bytes.length === 8 && (bytes[0]! & 0x80) !== 0 ? BigInt.asIntN(64, value) : value;
 }
 
 // ============================================

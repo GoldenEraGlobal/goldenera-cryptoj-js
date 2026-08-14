@@ -18,12 +18,12 @@ import {
   createAddressAliasRemovePayload,
   createAuthorityAddPayload,
   createAuthorityRemovePayload,
-  createNetworkParamsSetPayload,
+  createLegacyNetworkParamsSetPayload,
   createTokenBurnPayload,
   createTokenCreatePayload,
   createTokenMintPayload,
   createTokenUpdatePayload,
-  createValidatorAddPayload,
+  createLegacyValidatorAddPayload,
   createValidatorRemovePayload,
   createVotePayload,
 } from '../tx/payloads';
@@ -270,7 +270,7 @@ describe('Compatibility Tests', () => {
         .timestamp(Number(vector.timestamp))
         .nonce(18n)
         .fee(Amounts.parseTokens('0.01'))
-        .payload(createValidatorAddPayload(
+        .payload(createLegacyValidatorAddPayload(
           '0x9999999999999999999999999999999999999999' as Address
         ))
         .sign(privateKey);
@@ -310,7 +310,7 @@ describe('Compatibility Tests', () => {
         .timestamp(Number(vector.timestamp))
         .nonce(20n)
         .fee(Amounts.parseTokens('0.01'))
-        .payload(createNetworkParamsSetPayload({
+        .payload(createLegacyNetworkParamsSetPayload({
           blockReward: Amounts.tokens(50n),
           minTxBaseFee: Amounts.parseTokens('0.0001'),
           minTxByteFee: Amounts.parseTokens('0.00001'),
