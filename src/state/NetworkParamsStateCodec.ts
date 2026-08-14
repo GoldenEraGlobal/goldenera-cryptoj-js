@@ -1,5 +1,8 @@
 import { NetworkParamsStateVersion } from '../enums';
-import { validateMiningWindowSize } from '../consensus/MiningConsensusRules';
+import {
+  validateLimitedPolicyForWindow,
+  validateMiningWindowSize,
+} from '../consensus/MiningConsensusRules';
 import { RLPWriter } from '../serialization/rlp';
 import { hexToBytes, ZERO_ADDRESS, ZERO_HASH } from '../types';
 import type { NetworkParamsState } from './types';
@@ -8,6 +11,7 @@ import {
   bigintAt,
   decodeRlpTopLevelList,
   hashAt,
+  listAt,
   longAt,
 } from './codecHelpers';
 
@@ -26,6 +30,7 @@ export const NETWORK_PARAMS_STATE_ZERO: NetworkParamsState = Object.freeze({
   currentValidatorCount: 0n,
   currentUnlimitedValidatorCount: 0n,
   validatorMiningWindowBlocks: 0n,
+  limitedValidatorMiningSharesBps: Object.freeze([]) as readonly bigint[],
   updatedAtBlockHeight: -(1n << 63n),
   updatedAtTimestamp: 0n,
 });
@@ -36,12 +41,16 @@ export function encodeNetworkParamsState(state: NetworkParamsState): Uint8Array 
   }
   if (state.version === NetworkParamsStateVersion.V2) {
     validateMiningWindowSize(state.validatorMiningWindowBlocks);
-    if (
-      state.currentUnlimitedValidatorCount < 1n ||
-      state.currentUnlimitedValidatorCount > state.currentValidatorCount
-    ) {
-      throw new Error('currentUnlimitedValidatorCount must be in range 1..currentValidatorCount');
-    }
+    validateUnlimitedValidatorCount(
+      state.currentValidatorCount,
+      state.currentUnlimitedValidatorCount
+    );
+    validateLimitedValidatorMiningShares(
+      state.validatorMiningWindowBlocks,
+      state.currentValidatorCount,
+      state.currentUnlimitedValidatorCount,
+      state.limitedValidatorMiningSharesBps
+    );
   }
   const writer = new RLPWriter();
   writer.writeIntScalar(state.version);
@@ -61,6 +70,11 @@ export function encodeNetworkParamsState(state: NetworkParamsState): Uint8Array 
   if (state.version === NetworkParamsStateVersion.V2) {
     writer.writeLongScalar(state.validatorMiningWindowBlocks);
     writer.writeLongScalar(state.currentUnlimitedValidatorCount);
+    writer.writeList((listWriter) => {
+      for (const bps of state.limitedValidatorMiningSharesBps) {
+        listWriter.writeLongScalar(bps);
+      }
+    });
   }
   return writer.encode();
 }
@@ -69,7 +83,7 @@ export function decodeNetworkParamsState(data: Uint8Array): NetworkParamsState {
   const decoded = decodeRlpTopLevelList(data, 'NetworkParamsState');
   const version = Number(bigintAt(decoded, 0, 'NetworkParamsState version')) as NetworkParamsStateVersion;
   const expectedFields =
-    version === NetworkParamsStateVersion.V1 ? 14 : version === NetworkParamsStateVersion.V2 ? 16 : 0;
+    version === NetworkParamsStateVersion.V1 ? 14 : version === NetworkParamsStateVersion.V2 ? 17 : 0;
   if (decoded.length !== expectedFields) {
     throw new Error(`Invalid NetworkParamsState field count for version ${version}: ${decoded.length}`);
   }
@@ -98,17 +112,65 @@ export function decodeNetworkParamsState(data: Uint8Array): NetworkParamsState {
       ...common,
       currentUnlimitedValidatorCount: currentValidatorCount,
       validatorMiningWindowBlocks: 0n,
+      limitedValidatorMiningSharesBps: Object.freeze([]) as readonly bigint[],
     };
   }
   const validatorMiningWindowBlocks = longAt(decoded, 14, 'validatorMiningWindowBlocks');
   const currentUnlimitedValidatorCount = longAt(decoded, 15, 'currentUnlimitedValidatorCount');
+  const limitedValidatorMiningSharesBps = listAt(
+    decoded,
+    16,
+    'limitedValidatorMiningSharesBps'
+  ).map((_, index, shares) => longAt(shares, index, `limitedValidatorMiningSharesBps[${index}]`));
   validateMiningWindowSize(validatorMiningWindowBlocks);
-  if (currentUnlimitedValidatorCount < 1n || currentUnlimitedValidatorCount > currentValidatorCount) {
-    throw new Error('currentUnlimitedValidatorCount must be in range 1..currentValidatorCount');
-  }
+  validateUnlimitedValidatorCount(currentValidatorCount, currentUnlimitedValidatorCount);
+  validateLimitedValidatorMiningShares(
+    validatorMiningWindowBlocks,
+    currentValidatorCount,
+    currentUnlimitedValidatorCount,
+    limitedValidatorMiningSharesBps
+  );
   return {
     ...common,
     validatorMiningWindowBlocks,
     currentUnlimitedValidatorCount,
+    limitedValidatorMiningSharesBps: Object.freeze([...limitedValidatorMiningSharesBps]),
   };
+}
+
+function validateUnlimitedValidatorCount(
+  currentValidatorCount: bigint,
+  currentUnlimitedValidatorCount: bigint
+): void {
+  const validEmptyNetwork =
+    currentValidatorCount === 0n && currentUnlimitedValidatorCount === 0n;
+  const validNonEmptyNetwork =
+    currentValidatorCount > 0n &&
+    currentUnlimitedValidatorCount >= 1n &&
+    currentUnlimitedValidatorCount <= currentValidatorCount;
+  if (!validEmptyNetwork && !validNonEmptyNetwork) {
+    throw new Error(
+      'currentUnlimitedValidatorCount must be 0 for an empty validator set or in range 1..currentValidatorCount'
+    );
+  }
+}
+
+function validateLimitedValidatorMiningShares(
+  validatorMiningWindowBlocks: bigint,
+  currentValidatorCount: bigint,
+  currentUnlimitedValidatorCount: bigint,
+  shares: readonly bigint[]
+): void {
+  const expectedLimitedValidatorCount = currentValidatorCount - currentUnlimitedValidatorCount;
+  if (BigInt(shares.length) !== expectedLimitedValidatorCount) {
+    throw new Error('LIMITED validator policy summary is inconsistent');
+  }
+  let previous = 0n;
+  for (const bps of shares) {
+    validateLimitedPolicyForWindow(validatorMiningWindowBlocks, bps);
+    if (bps < previous) {
+      throw new Error('LIMITED validator policy summary must be sorted');
+    }
+    previous = bps;
+  }
 }

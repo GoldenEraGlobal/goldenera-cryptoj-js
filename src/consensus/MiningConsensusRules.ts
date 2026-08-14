@@ -35,3 +35,16 @@ export function validateMiningWindowSize(validatorMiningWindowBlocks: bigint): v
     );
   }
 }
+
+export function validateLimitedPolicyForWindow(
+  validatorMiningWindowBlocks: bigint,
+  maxMiningShareBps: bigint
+): void {
+  validateMiningWindowSize(validatorMiningWindowBlocks);
+  validateMiningPolicy(MiningLimitMode.LIMITED, maxMiningShareBps);
+  if (validatorMiningWindowBlocks * maxMiningShareBps < BASIS_POINTS_DENOMINATOR) {
+    throw new Error(
+      'LIMITED mining policy must allow at least one block in the configured window'
+    );
+  }
+}

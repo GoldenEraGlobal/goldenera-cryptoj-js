@@ -12,26 +12,26 @@ import {
   longAt,
 } from './codecHelpers';
 
-export const MINING_WINDOW_STATE_ZERO: MiningWindowState = Object.freeze({
-  version: MiningWindowStateVersion.V1,
-  windowSize: 0n,
-  orderedValidatorIdentities: Object.freeze([]) as readonly Address[],
-  validatorBlockCounts: new Map<Address, bigint>(),
-  lastUpdatedBlockHeight: 0n,
-});
+export const MINING_WINDOW_STATE_ZERO: MiningWindowState = immutableMiningWindowState(
+  MiningWindowStateVersion.V1,
+  0n,
+  [],
+  new Map(),
+  0n
+);
 
 export function createEmptyMiningWindowState(
   windowSize: bigint,
   lastUpdatedBlockHeight: bigint
 ): MiningWindowState {
   validateMiningWindowSize(windowSize);
-  return {
-    version: MiningWindowStateVersion.V1,
+  return immutableMiningWindowState(
+    MiningWindowStateVersion.V1,
     windowSize,
-    orderedValidatorIdentities: [],
-    validatorBlockCounts: new Map(),
-    lastUpdatedBlockHeight,
-  };
+    [],
+    new Map(),
+    lastUpdatedBlockHeight
+  );
 }
 
 /** Return a new state after atomically evicting (when full) and appending. */
@@ -53,13 +53,13 @@ export function appendMiningWindow(
   }
   ordered.push(validator);
   counts.set(validator, (counts.get(validator) ?? 0n) + 1n);
-  return {
-    version: state.version,
-    windowSize: state.windowSize,
-    orderedValidatorIdentities: ordered,
-    validatorBlockCounts: counts,
-    lastUpdatedBlockHeight: blockHeight,
-  };
+  return immutableMiningWindowState(
+    state.version,
+    state.windowSize,
+    ordered,
+    counts,
+    blockHeight
+  );
 }
 
 export function validateMiningWindowState(state: MiningWindowState): void {
@@ -146,13 +146,13 @@ export function decodeMiningWindowState(data: Uint8Array): MiningWindowState {
     counts.set(address, count);
     previousAddress = address;
   }
-  const state: MiningWindowState = {
+  const state = immutableMiningWindowState(
     version,
-    windowSize: longAt(decoded, 1, 'windowSize'),
-    orderedValidatorIdentities: identities,
-    validatorBlockCounts: counts,
-    lastUpdatedBlockHeight: longAt(decoded, 4, 'lastUpdatedBlockHeight'),
-  };
+    longAt(decoded, 1, 'windowSize'),
+    identities,
+    counts,
+    longAt(decoded, 4, 'lastUpdatedBlockHeight')
+  );
   validateMiningWindowState(state);
   return state;
 }
@@ -170,6 +170,46 @@ function normalizedCounts(counts: ReadonlyMap<Address, bigint>): Map<Address, bi
     normalized.set(key, count);
   }
   return normalized;
+}
+
+function immutableMiningWindowState(
+  version: MiningWindowStateVersion,
+  windowSize: bigint,
+  orderedValidatorIdentities: readonly Address[],
+  validatorBlockCounts: ReadonlyMap<Address, bigint>,
+  lastUpdatedBlockHeight: bigint
+): MiningWindowState {
+  return Object.freeze({
+    version,
+    windowSize,
+    orderedValidatorIdentities: Object.freeze([...orderedValidatorIdentities]),
+    validatorBlockCounts: immutableReadonlyMap(validatorBlockCounts),
+    lastUpdatedBlockHeight,
+  });
+}
+
+/** A closure-backed ReadonlyMap without Map mutation methods on the runtime object. */
+function immutableReadonlyMap<K, V>(source: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
+  const data = new Map(source);
+  let view: ReadonlyMap<K, V>;
+  view = Object.freeze({
+    get size(): number {
+      return data.size;
+    },
+    has: (key: K): boolean => data.has(key),
+    get: (key: K): V | undefined => data.get(key),
+    entries: (): MapIterator<[K, V]> => data.entries(),
+    keys: (): MapIterator<K> => data.keys(),
+    values: (): MapIterator<V> => data.values(),
+    forEach: (callbackfn: (value: V, key: K, map: ReadonlyMap<K, V>) => void, thisArg?: unknown): void => {
+      data.forEach((value, key) => callbackfn.call(thisArg, value, key, view));
+    },
+    [Symbol.iterator]: (): MapIterator<[K, V]> => data.entries(),
+    get [Symbol.toStringTag](): string {
+      return 'ReadonlyMap';
+    },
+  });
+  return view;
 }
 
 /** ASCII/code-unit lexical ordering, matching Java String.compareTo without locale/ICU input. */

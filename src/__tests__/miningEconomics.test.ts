@@ -17,10 +17,19 @@ import {
   createValidatorMiningPolicySetPayload,
 } from '../tx/payloads';
 import { decodePayload, encodePayload } from '../serialization/PayloadCodec';
+import {
+  decodeInt,
+  decodeLong,
+  decodeOptionalBigint,
+  rlpDecode,
+  rlpEncode,
+  RLPWriter,
+} from '../serialization/rlp';
 import { bytesToHex, hexToBytes, ZERO_ADDRESS, ZERO_HASH } from '../types';
 import type { Address, Hash, Hex } from '../types';
 import {
   MAX_VALIDATOR_MINING_SHARE_BPS,
+  validateLimitedPolicyForWindow,
   validateMiningPolicy,
   validateMiningWindowSize,
 } from '../consensus/MiningConsensusRules';
@@ -43,6 +52,7 @@ import {
   MINING_WINDOW_STATE_ZERO,
 } from '../state/MiningWindowStateCodec';
 import { javaMiningEconomicsVectors as vectors } from './miningEconomics.java-vectors';
+import { javaRlpAdversarialVectors } from './miningEconomics.java-adversarial-vectors';
 
 const VALIDATOR = '0x1111111111111111111111111111111111111111' as Address;
 const SECOND_VALIDATOR = '0x2222222222222222222222222222222222222222' as Address;
@@ -120,11 +130,14 @@ describe('mining economics Java golden vectors', () => {
     expect(v1.version).toBe(NetworkParamsStateVersion.V1);
     expect(v1.currentUnlimitedValidatorCount).toBe(v1.currentValidatorCount);
     expect(v1.validatorMiningWindowBlocks).toBe(0n);
+    expect(v1.limitedValidatorMiningSharesBps).toEqual([]);
     expectHex(encodeNetworkParamsState(v1), vectors.state.networkParamsV1);
 
     const v2 = networkParamsV2();
     expectHex(encodeNetworkParamsState(v2), vectors.state.networkParamsV2);
-    expect(decodeNetworkParamsState(fromHex(vectors.state.networkParamsV2))).toEqual(v2);
+    const decodedV2 = decodeNetworkParamsState(fromHex(vectors.state.networkParamsV2));
+    expect(decodedV2).toEqual(v2);
+    expect(Object.isFrozen(decodedV2.limitedValidatorMiningSharesBps)).toBe(true);
     expectHex(encodeNetworkParamsState(NETWORK_PARAMS_STATE_ZERO), vectors.state.networkParamsZero);
     expect(decodeNetworkParamsState(fromHex(vectors.state.networkParamsZero))).toEqual(
       NETWORK_PARAMS_STATE_ZERO
@@ -184,6 +197,10 @@ describe('mining economics consensus validation', () => {
     expect(() => validateMiningWindowSize(10_000n)).not.toThrow();
     expect(() => validateMiningWindowSize(99n)).toThrow();
     expect(() => validateMiningWindowSize(10_001n)).toThrow();
+    expect(() => validateLimitedPolicyForWindow(100n, 100n)).not.toThrow();
+    expect(() => validateLimitedPolicyForWindow(100n, 99n)).toThrow(
+      'must allow at least one block'
+    );
   });
 
   it('rejects non-canonical decoded payloads and state', () => {
@@ -192,6 +209,128 @@ describe('mining economics consensus validation', () => {
     ).toThrow();
     expect(() => encodeNetworkParamsState({ ...networkParamsV2(), currentUnlimitedValidatorCount: 0n }))
       .toThrow();
+  });
+
+  it('enforces the canonical LIMITED-validator BPS multiset on encode and decode', () => {
+    const emptyValidatorSet: NetworkParamsState = {
+      ...networkParamsV2(),
+      currentValidatorCount: 0n,
+      currentUnlimitedValidatorCount: 0n,
+      limitedValidatorMiningSharesBps: [],
+    };
+    expect(decodeNetworkParamsState(encodeNetworkParamsState(emptyValidatorSet))).toEqual(
+      emptyValidatorSet
+    );
+
+    const duplicateShares: NetworkParamsState = {
+      ...networkParamsV2(),
+      currentValidatorCount: 4n,
+      currentUnlimitedValidatorCount: 1n,
+      limitedValidatorMiningSharesBps: [1_000n, 1_000n, 2_000n],
+    };
+    expect(decodeNetworkParamsState(encodeNetworkParamsState(duplicateShares))).toEqual(
+      duplicateShares
+    );
+
+    expect(() =>
+      encodeNetworkParamsState({
+        ...networkParamsV2(),
+        currentValidatorCount: 4n,
+        currentUnlimitedValidatorCount: 2n,
+        limitedValidatorMiningSharesBps: [2_000n, 1_000n],
+      })
+    ).toThrow('must be sorted');
+    expect(() =>
+      encodeNetworkParamsState({
+        ...networkParamsV2(),
+        limitedValidatorMiningSharesBps: [],
+      })
+    ).toThrow('summary is inconsistent');
+    expect(() =>
+      encodeNetworkParamsState({
+        ...emptyValidatorSet,
+        currentUnlimitedValidatorCount: 1n,
+      })
+    ).toThrow('must be 0 for an empty validator set');
+    expect(() =>
+      encodeNetworkParamsState({
+        ...networkParamsV2(),
+        validatorMiningWindowBlocks: 100n,
+        limitedValidatorMiningSharesBps: [99n],
+      })
+    ).toThrow('must allow at least one block');
+
+    const inconsistent = rlpDecode(fromHex(vectors.state.networkParamsV2));
+    if (!Array.isArray(inconsistent)) throw new Error('Expected NetworkParamsState list vector');
+    inconsistent[16] = [];
+    expect(() => decodeNetworkParamsState(rlpEncode(inconsistent))).toThrow(
+      'summary is inconsistent'
+    );
+
+    const unsorted = rlpDecode(fromHex(vectors.state.networkParamsV2));
+    if (!Array.isArray(unsorted)) throw new Error('Expected NetworkParamsState list vector');
+    unsorted[11] = fromHex('0x04');
+    unsorted[16] = [fromHex('0x07d0'), fromHex('0x03e8')];
+    expect(() => decodeNetworkParamsState(rlpEncode(unsorted))).toThrow('must be sorted');
+  });
+
+  it('matches hard-coded Java signed-scalar boundaries and rejects non-canonical widths', () => {
+    for (const { scalar, value } of javaRlpAdversarialVectors.validLongs) {
+      expect(decodeLong(fromHex(scalar))).toBe(value);
+    }
+    for (const { scalar, error } of javaRlpAdversarialVectors.invalidScalars) {
+      expect(() => decodeLong(fromHex(scalar))).toThrow(error);
+    }
+
+    expect(decodeInt(fromHex('0x7fffffff'))).toBe(2_147_483_647);
+    expect(decodeInt(fromHex('0x80000000'))).toBe(-2_147_483_648);
+    expect(decodeInt(fromHex('0xffffffff'))).toBe(-1);
+    expect(() => decodeInt(fromHex('0x0100000000'))).toThrow('32-bit width');
+
+    const longWriter = new RLPWriter();
+    longWriter.writeLongScalar(-9_223_372_036_854_775_808n);
+    expect(bytesToHex(longWriter.encode())).toBe(javaRlpAdversarialVectors.encodedLongMinList);
+    expect(() => new RLPWriter().writeLongScalar(9_223_372_036_854_775_808n)).toThrow(
+      'signed 64-bit range'
+    );
+    expect(() => new RLPWriter().writeLongScalar(-9_223_372_036_854_775_809n)).toThrow(
+      'signed 64-bit range'
+    );
+    expect(() => new RLPWriter().writeBigIntegerScalar(-1n)).toThrow('non-negative');
+  });
+
+  it('requires Java optional values to be empty or single-scalar RLP lists', () => {
+    expect(decodeOptionalBigint([])).toBeNull();
+    expect(decodeOptionalBigint([new Uint8Array()])).toBe(0n);
+    expect(decodeOptionalBigint([fromHex('0x01')])).toBe(1n);
+    expect(() => decodeOptionalBigint(fromHex('0x01'))).toThrow('must be an RLP list');
+    expect(() => decodeOptionalBigint([fromHex('0x01'), fromHex('0x02')])).toThrow(
+      'exactly one element'
+    );
+    expect(() => decodeOptionalBigint([[fromHex('0x01')]])).toThrow('must be an RLP scalar');
+    expect(() => decodeOptionalBigint([fromHex('0x0001')])).toThrow('minimal encoding');
+  });
+
+  it('returns runtime-immutable mining-window snapshots without shared mutable collections', () => {
+    const empty = createEmptyMiningWindowState(100n, 5n);
+    expect(Object.isFrozen(empty)).toBe(true);
+    expect(Object.isFrozen(empty.orderedValidatorIdentities)).toBe(true);
+    expect(Object.isFrozen(empty.validatorBlockCounts)).toBe(true);
+    expect('set' in empty.validatorBlockCounts).toBe(false);
+
+    expect(() => (empty.orderedValidatorIdentities as Address[]).push(VALIDATOR)).toThrow();
+    expect(() =>
+      (empty.validatorBlockCounts as Map<Address, bigint>).set(VALIDATOR, 1n)
+    ).toThrow();
+    expect(empty.orderedValidatorIdentities).toHaveLength(0);
+    expect(empty.validatorBlockCounts.size).toBe(0);
+
+    const decoded = decodeMiningWindowState(fromHex(vectors.state.miningWindow));
+    expect(() =>
+      (decoded.validatorBlockCounts as Map<Address, bigint>).clear()
+    ).toThrow();
+    expect(decoded.validatorBlockCounts.get(VALIDATOR)).toBe(2n);
+    expect(MINING_WINDOW_STATE_ZERO.validatorBlockCounts.size).toBe(0);
   });
 
   it('uses binary canonical address ordering independent of map insertion order', () => {
@@ -243,6 +382,7 @@ function networkParamsV2(): NetworkParamsState {
     currentValidatorCount: 3n,
     currentUnlimitedValidatorCount: 2n,
     validatorMiningWindowBlocks: 1_000n,
+    limitedValidatorMiningSharesBps: [1_000n],
     updatedAtBlockHeight: 5n,
     updatedAtTimestamp: 1_000n,
   };

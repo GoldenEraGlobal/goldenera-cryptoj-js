@@ -36,6 +36,8 @@ export interface NetworkParamsState {
   readonly currentUnlimitedValidatorCount: bigint;
   /** V1 decoders expose zero because this field was absent from V1. */
   readonly validatorMiningWindowBlocks: bigint;
+  /** Sorted multiset containing one BPS value for each active LIMITED validator. */
+  readonly limitedValidatorMiningSharesBps: readonly bigint[];
   readonly updatedAtBlockHeight: bigint;
   readonly updatedAtTimestamp: bigint;
 }

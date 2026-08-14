@@ -77,7 +77,7 @@ export { encodeTx, TxEncoder } from './serialization/TxEncoder';
 export {
     BASIS_POINTS_DENOMINATOR, MAX_VALIDATOR_MINING_SHARE_BPS,
     MAX_VALIDATOR_MINING_WINDOW_BLOCKS, MIN_VALIDATOR_MINING_WINDOW_BLOCKS,
-    validateMiningPolicy, validateMiningWindowSize
+    validateLimitedPolicyForWindow, validateMiningPolicy, validateMiningWindowSize
 } from './consensus/MiningConsensusRules';
 export type { MiningWindowState, NetworkParamsState, ValidatorState } from './state/types';
 export {
