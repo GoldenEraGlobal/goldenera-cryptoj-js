@@ -1,6 +1,7 @@
 # Test Vectors Generator
 
-This is a lightweight Java project that uses the published `goldenera-cryptoj` library to generate test vectors for the TypeScript implementation.
+This is an optional manual generator for the legacy transaction compatibility vectors. Normal
+JavaScript tests use committed deterministic vectors and do not invoke Maven or access the network.
 
 ## Prerequisites
 
@@ -33,4 +34,6 @@ mvn compile exec:java > ../src/__tests__/testVectors.generated.ts
 
 ## Update TypeScript Tests
 
-After generating new vectors, update `src/__tests__/testVectors.ts` with the generated content.
+Review the diff in `src/__tests__/testVectors.generated.ts` before accepting regenerated vectors.
+The mining-economics vectors are maintained separately in
+`src/__tests__/miningEconomics.java-vectors.ts` from the authoritative sibling Java implementation.

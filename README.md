@@ -211,9 +211,23 @@ createAddressAliasAddPayload(address, alias)
 createAddressAliasRemovePayload(alias)
 createAuthorityAddPayload(authorityAddress)
 createAuthorityRemovePayload(authorityAddress)
-createValidatorAddPayload(validatorAddress)
+createValidatorAddPayload(validatorAddress, {
+  miningLimitMode: MiningLimitMode.LIMITED,
+  maxMiningShareBps: 3000n,
+}) // Latest V2
+createLegacyValidatorAddPayload(validatorAddress) // Historical implicit V1
 createValidatorRemovePayload(validatorAddress)
-createNetworkParamsSetPayload({ blockReward?, ... })
+createValidatorMiningPolicySetPayload(validatorAddress, {
+  miningLimitMode: MiningLimitMode.UNLIMITED,
+  maxMiningShareBps: 0n,
+})
+createNetworkParamsSetPayload({
+  blockReward?,
+  validatorMiningWindowBlocks?,
+  miningRewardVestingBlocks?,
+  ...
+}) // Latest V2
+createLegacyNetworkParamsSetPayload({ blockReward?, ... }) // Historical implicit V1
 ```
 
 ## Development

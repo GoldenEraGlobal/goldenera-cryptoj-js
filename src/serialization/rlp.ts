@@ -39,6 +39,12 @@ export function rlpDecode(input: Uint8Array): RLPDecoded {
  */
 export function encodeScalar(value: bigint | number): Uint8Array {
   const v = BigInt(value);
+  if (v < 0n) throw new Error('RLP scalar must be non-negative');
+  return encodeUnsigned(v);
+}
+
+function encodeUnsigned(value: bigint): Uint8Array {
+  const v = value;
   if (v === 0n) {
     return new Uint8Array(0); // Empty bytes for zero
   }
@@ -53,6 +59,8 @@ export function encodeScalar(value: bigint | number): Uint8Array {
  * Decode minimal bytes to bigint.
  */
 export function decodeScalar(bytes: Uint8Array): bigint {
+  if (!(bytes instanceof Uint8Array)) throw new Error('RLP scalar must be a byte string');
+  assertCanonicalScalar(bytes);
   if (bytes.length === 0) return 0n;
   return BigInt(bytesToHex(bytes));
 }
@@ -61,7 +69,48 @@ export function decodeScalar(bytes: Uint8Array): bigint {
  * Decode minimal bytes to number.
  */
 export function decodeInt(bytes: Uint8Array): number {
-  return Number(decodeScalar(bytes));
+  return Number(decodeSignedScalar(bytes, 32, 'int'));
+}
+
+/** Decode the Java RLP long-scalar representation, including two's-complement negatives. */
+export function decodeLong(bytes: Uint8Array): bigint {
+  return decodeSignedScalar(bytes, 64, 'long');
+}
+
+function encodeSignedScalar(value: bigint | number, bits: 32 | 64, name: string): Uint8Array {
+  if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+    throw new Error(`${name} scalar must be a safe integer when provided as number`);
+  }
+  const v = BigInt(value);
+  const min = -(1n << BigInt(bits - 1));
+  const max = (1n << BigInt(bits - 1)) - 1n;
+  if (v < min || v > max) {
+    throw new Error(`${name} scalar is outside Java signed ${bits}-bit range`);
+  }
+  return v < 0n ? encodeFixedWidth(BigInt.asUintN(bits, v), bits / 8) : encodeUnsigned(v);
+}
+
+function decodeSignedScalar(bytes: Uint8Array, bits: 32 | 64, name: string): bigint {
+  const width = bits / 8;
+  if (bytes.length > width) {
+    throw new Error(`${name} scalar exceeds Java ${bits}-bit width`);
+  }
+  const unsigned = decodeScalar(bytes);
+  return bytes.length === width && (bytes[0]! & 0x80) !== 0
+    ? BigInt.asIntN(bits, unsigned)
+    : unsigned;
+}
+
+function encodeFixedWidth(value: bigint, width: number): Uint8Array {
+  let hex = value.toString(16).padStart(width * 2, '0');
+  if (hex.length > width * 2) hex = hex.slice(-width * 2);
+  return hexToBytes(`0x${hex}`);
+}
+
+function assertCanonicalScalar(bytes: Uint8Array): void {
+  if (bytes.length > 0 && bytes[0] === 0) {
+    throw new Error('RLP scalar must use minimal encoding without leading zero bytes');
+  }
 }
 
 // ============================================
@@ -95,12 +144,13 @@ export class RLPWriter {
 
   /** Write a long scalar (same as writeScalar for bigint) */
   writeLongScalar(value: bigint | number): void {
-    this.writeScalar(value);
+    this.elements.push({ type: 'bytes', data: encodeSignedScalar(value, 64, 'long') });
   }
 
   /** Write an int scalar */
   writeIntScalar(value: number): void {
-    this.writeScalar(value);
+    if (!Number.isSafeInteger(value)) throw new Error('int scalar must be a safe integer');
+    this.elements.push({ type: 'bytes', data: encodeSignedScalar(value, 32, 'int') });
   }
 
   /** Write already-encoded RLP data directly (will NOT be re-encoded) */
@@ -158,7 +208,8 @@ export class RLPWriter {
 
   /** Write BigInteger scalar (same as regular scalar for positive values) */
   writeBigIntegerScalar(value: bigint): void {
-    this.writeScalar(value);
+    if (value < 0n) throw new Error('BigInteger scalar must be non-negative');
+    this.elements.push({ type: 'bytes', data: encodeUnsigned(value) });
   }
 
   /** Write optional raw RLP - wraps in list if present */
@@ -339,58 +390,54 @@ export function decodeBigint(bytes: Uint8Array): bigint {
 // Optional Decoders (unwrap from list)
 // ============================================
 
-function isEmptyList(item: unknown): boolean {
-  if (Array.isArray(item) && item.length === 0) return true;
-  if (item instanceof Uint8Array && item.length === 0) return true;
-  return false;
-}
-
 export function decodeOptionalBytes(item: unknown): Uint8Array | null {
-  if (isEmptyList(item)) return null;
-  if (Array.isArray(item) && item.length === 1) {
-    return item[0] as Uint8Array;
-  }
-  if (item instanceof Uint8Array) {
-    return item.length === 0 ? null : item;
-  }
-  return null;
+  const value = decodeOptionalElement(item, 'optional bytes');
+  if (value === null) return null;
+  if (!(value instanceof Uint8Array)) throw new Error('optional bytes value must be an RLP scalar');
+  return value;
 }
 
 export function decodeOptionalAddress(item: unknown): Address | null {
   const bytes = decodeOptionalBytes(item);
-  if (bytes === null || bytes.length === 0) return null;
+  if (bytes === null) return null;
   return decodeAddress(bytes);
 }
 
 export function decodeOptionalHash(item: unknown): Hash | null {
   const bytes = decodeOptionalBytes(item);
-  if (bytes === null || bytes.length === 0) return null;
+  if (bytes === null) return null;
   return decodeHash(bytes);
 }
 
 export function decodeOptionalBigint(item: unknown): bigint | null {
-  if (isEmptyList(item)) return null;
-  if (Array.isArray(item) && item.length === 1) {
-    return decodeScalar(item[0] as Uint8Array);
+  const value = decodeOptionalElement(item, 'optional BigInteger');
+  if (value === null) return null;
+  if (!(value instanceof Uint8Array)) {
+    throw new Error('optional BigInteger value must be an RLP scalar');
   }
-  if (item instanceof Uint8Array) {
-    return item.length === 0 ? null : decodeScalar(item);
-  }
-  return null;
+  return decodeBigint(value);
 }
 
 export function decodeOptionalString(item: unknown): string | null {
   const bytes = decodeOptionalBytes(item);
-  if (bytes === null || bytes.length === 0) return null;
+  if (bytes === null) return null;
   return decodeString(bytes);
 }
 
 export function decodeOptionalRaw(item: unknown): Uint8Array | null {
-  if (isEmptyList(item)) return null;
-  if (Array.isArray(item) && item.length >= 1) {
-    return rlpEncode(item);
+  const value = decodeOptionalElement(item, 'optional raw RLP');
+  return value === null ? null : rlpEncode([value]);
+}
+
+function decodeOptionalElement(item: unknown, name: string): RLPDecoded | null {
+  if (!Array.isArray(item)) throw new Error(`${name} must be an RLP list`);
+  if (item.length === 0) return null;
+  if (item.length !== 1) throw new Error(`${name} must contain exactly one element`);
+  const value = item[0];
+  if (!(value instanceof Uint8Array) && !Array.isArray(value)) {
+    throw new Error(`${name} contains an invalid RLP element`);
   }
-  return null;
+  return value;
 }
 
 // ============================================

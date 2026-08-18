@@ -7,25 +7,34 @@ export type {
   AddressAliasAddPayload,
   AddressAliasRemovePayload, AnyTxPayload, AuthorityAddPayload,
   AuthorityRemovePayload,
-  NetworkParamsSetPayload, TokenBurnPayload,
+  NetworkParamsSetPayload, NetworkParamsSetPayloadV1, NetworkParamsSetPayloadV2, TokenBurnPayload,
   TokenCreatePayload, TokenMintPayload, TokenUpdatePayload,
-  ValidatorAddPayload, ValidatorRemovePayload,
+  ValidatorAddPayload, ValidatorAddPayloadV1, ValidatorAddPayloadV2,
+  ValidatorMiningPolicySetPayload, ValidatorRemovePayload,
   VotePayload
 } from './types';
 
-import { BipVoteType, TxPayloadType } from '../../enums';
+import { MiningLimitMode, BipVoteType, TxPayloadType, TxPayloadVersion } from '../../enums';
+import {
+  validateMiningPolicy,
+  validateMiningRewardVestingBlocks,
+  validateMiningWindowSize,
+} from '../../consensus/MiningConsensusRules';
 import type { Address } from '../../types';
 import type {
   AddressAliasAddPayload,
   AddressAliasRemovePayload,
   AuthorityAddPayload,
   AuthorityRemovePayload,
-  NetworkParamsSetPayload,
+  NetworkParamsSetPayloadV1,
+  NetworkParamsSetPayloadV2,
   TokenBurnPayload,
   TokenCreatePayload,
   TokenMintPayload,
   TokenUpdatePayload,
-  ValidatorAddPayload,
+  ValidatorAddPayloadV1,
+  ValidatorAddPayloadV2,
+  ValidatorMiningPolicySetPayload,
   ValidatorRemovePayload,
   VotePayload,
 } from './types';
@@ -44,6 +53,7 @@ export function createTokenMintPayload(
 ): TokenMintPayload {
   return {
     payloadType: TxPayloadType.BIP_TOKEN_MINT,
+    payloadVersion: TxPayloadVersion.V1,
     tokenAddress,
     recipient,
     amount,
@@ -60,6 +70,7 @@ export function createTokenBurnPayload(
 ): TokenBurnPayload {
   return {
     payloadType: TxPayloadType.BIP_TOKEN_BURN,
+    payloadVersion: TxPayloadVersion.V1,
     tokenAddress,
     sender,
     amount,
@@ -80,6 +91,7 @@ export function createTokenCreatePayload(params: {
 }): TokenCreatePayload {
   return {
     payloadType: TxPayloadType.BIP_TOKEN_CREATE,
+    payloadVersion: TxPayloadVersion.V1,
     name: params.name,
     smallestUnitName: params.smallestUnitName,
     numberOfDecimals: params.numberOfDecimals,
@@ -104,6 +116,7 @@ export function createTokenUpdatePayload(
 ): TokenUpdatePayload {
   return {
     payloadType: TxPayloadType.BIP_TOKEN_UPDATE,
+    payloadVersion: TxPayloadVersion.V1,
     tokenAddress,
     name: updates.name ?? null,
     smallestUnitName: updates.smallestUnitName ?? null,
@@ -118,6 +131,7 @@ export function createTokenUpdatePayload(
 export function createVotePayload(voteType: BipVoteType): VotePayload {
   return {
     payloadType: TxPayloadType.BIP_VOTE,
+    payloadVersion: TxPayloadVersion.V1,
     voteType,
   };
 }
@@ -142,6 +156,7 @@ export function createDisapprovalVote(): VotePayload {
 export function createAddressAliasAddPayload(address: Address, alias: string): AddressAliasAddPayload {
   return {
     payloadType: TxPayloadType.BIP_ADDRESS_ALIAS_ADD,
+    payloadVersion: TxPayloadVersion.V1,
     address,
     alias,
   };
@@ -153,6 +168,7 @@ export function createAddressAliasAddPayload(address: Address, alias: string): A
 export function createAddressAliasRemovePayload(alias: string): AddressAliasRemovePayload {
   return {
     payloadType: TxPayloadType.BIP_ADDRESS_ALIAS_REMOVE,
+    payloadVersion: TxPayloadVersion.V1,
     alias,
   };
 }
@@ -163,6 +179,7 @@ export function createAddressAliasRemovePayload(alias: string): AddressAliasRemo
 export function createAuthorityAddPayload(authorityAddress: Address): AuthorityAddPayload {
   return {
     payloadType: TxPayloadType.BIP_AUTHORITY_ADD,
+    payloadVersion: TxPayloadVersion.V1,
     authorityAddress,
   };
 }
@@ -173,6 +190,7 @@ export function createAuthorityAddPayload(authorityAddress: Address): AuthorityA
 export function createAuthorityRemovePayload(authorityAddress: Address): AuthorityRemovePayload {
   return {
     payloadType: TxPayloadType.BIP_AUTHORITY_REMOVE,
+    payloadVersion: TxPayloadVersion.V1,
     authorityAddress,
   };
 }
@@ -180,9 +198,25 @@ export function createAuthorityRemovePayload(authorityAddress: Address): Authori
 /**
  * Create an Validator Add payload.
  */
-export function createValidatorAddPayload(validatorAddress: Address): ValidatorAddPayload {
+export function createValidatorAddPayload(
+  validatorAddress: Address,
+  policy: { miningLimitMode: MiningLimitMode; maxMiningShareBps: bigint }
+): ValidatorAddPayloadV2 {
+  validateMiningPolicy(policy.miningLimitMode, policy.maxMiningShareBps);
   return {
     payloadType: TxPayloadType.BIP_VALIDATOR_ADD,
+    payloadVersion: TxPayloadVersion.V2,
+    validatorAddress,
+    miningLimitMode: policy.miningLimitMode,
+    maxMiningShareBps: policy.maxMiningShareBps,
+  };
+}
+
+/** Build the historical implicit-V1 validator-add payload. */
+export function createLegacyValidatorAddPayload(validatorAddress: Address): ValidatorAddPayloadV1 {
+  return {
+    payloadType: TxPayloadType.BIP_VALIDATOR_ADD,
+    payloadVersion: TxPayloadVersion.V1,
     validatorAddress,
   };
 }
@@ -193,6 +227,7 @@ export function createValidatorAddPayload(validatorAddress: Address): ValidatorA
 export function createValidatorRemovePayload(validatorAddress: Address): ValidatorRemovePayload {
   return {
     payloadType: TxPayloadType.BIP_VALIDATOR_REMOVE,
+    payloadVersion: TxPayloadVersion.V1,
     validatorAddress,
   };
 }
@@ -208,9 +243,20 @@ export function createNetworkParamsSetPayload(params: {
   minDifficulty?: bigint | null;
   minTxBaseFee?: bigint | null;
   minTxByteFee?: bigint | null;
-}): NetworkParamsSetPayload {
+  validatorMiningWindowBlocks?: bigint | null;
+  miningRewardVestingBlocks?: bigint | null;
+}): NetworkParamsSetPayloadV2 {
+  const validatorMiningWindowBlocks = params.validatorMiningWindowBlocks ?? null;
+  const miningRewardVestingBlocks = params.miningRewardVestingBlocks ?? null;
+  if (validatorMiningWindowBlocks !== null) {
+    validateMiningWindowSize(validatorMiningWindowBlocks);
+  }
+  if (miningRewardVestingBlocks !== null) {
+    validateMiningRewardVestingBlocks(miningRewardVestingBlocks);
+  }
   return {
     payloadType: TxPayloadType.BIP_NETWORK_PARAMS_SET,
+    payloadVersion: TxPayloadVersion.V2,
     blockReward: params.blockReward ?? null,
     blockRewardPoolAddress: params.blockRewardPoolAddress ?? null,
     targetMiningTimeMs: params.targetMiningTimeMs ?? null,
@@ -218,5 +264,44 @@ export function createNetworkParamsSetPayload(params: {
     minDifficulty: params.minDifficulty ?? null,
     minTxBaseFee: params.minTxBaseFee ?? null,
     minTxByteFee: params.minTxByteFee ?? null,
+    validatorMiningWindowBlocks,
+    miningRewardVestingBlocks,
+  };
+}
+
+/** Build the historical implicit-V1 network-params payload. */
+export function createLegacyNetworkParamsSetPayload(params: {
+  blockReward?: bigint | null;
+  blockRewardPoolAddress?: Address | null;
+  targetMiningTimeMs?: bigint | null;
+  asertHalfLifeBlocks?: bigint | null;
+  minDifficulty?: bigint | null;
+  minTxBaseFee?: bigint | null;
+  minTxByteFee?: bigint | null;
+}): NetworkParamsSetPayloadV1 {
+  return {
+    payloadType: TxPayloadType.BIP_NETWORK_PARAMS_SET,
+    payloadVersion: TxPayloadVersion.V1,
+    blockReward: params.blockReward ?? null,
+    blockRewardPoolAddress: params.blockRewardPoolAddress ?? null,
+    targetMiningTimeMs: params.targetMiningTimeMs ?? null,
+    asertHalfLifeBlocks: params.asertHalfLifeBlocks ?? null,
+    minDifficulty: params.minDifficulty ?? null,
+    minTxBaseFee: params.minTxBaseFee ?? null,
+    minTxByteFee: params.minTxByteFee ?? null,
+  };
+}
+
+export function createValidatorMiningPolicySetPayload(
+  validatorAddress: Address,
+  policy: { miningLimitMode: MiningLimitMode; maxMiningShareBps: bigint }
+): ValidatorMiningPolicySetPayload {
+  validateMiningPolicy(policy.miningLimitMode, policy.maxMiningShareBps);
+  return {
+    payloadType: TxPayloadType.BIP_VALIDATOR_MINING_POLICY_SET,
+    payloadVersion: TxPayloadVersion.V1,
+    validatorAddress,
+    miningLimitMode: policy.miningLimitMode,
+    maxMiningShareBps: policy.maxMiningShareBps,
   };
 }
