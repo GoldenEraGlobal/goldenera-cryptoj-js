@@ -16,6 +16,7 @@ import {
   createValidatorAddPayload,
   createValidatorMiningPolicySetPayload,
 } from '../tx/payloads';
+import type { NetworkParamsSetPayloadV2 } from '../tx/payloads';
 import { decodePayload, encodePayload } from '../serialization/PayloadCodec';
 import {
   decodeInt,
@@ -29,6 +30,7 @@ import { bytesToHex, hexToBytes, ZERO_ADDRESS, ZERO_HASH } from '../types';
 import type { Address, Hash, Hex } from '../types';
 import {
   MAX_VALIDATOR_MINING_SHARE_BPS,
+  validateMiningRewardVestingBlocks,
   validateLimitedPolicyForWindow,
   validateMiningPolicy,
   validateMiningWindowSize,
@@ -77,7 +79,10 @@ describe('mining economics Java golden vectors', () => {
     expectHex(encodePayload(networkV1, TxVersion.V1), vectors.payload.networkParamsV1);
     expect(decodePayload(fromHex(vectors.payload.networkParamsV1), TxVersion.V1)).toEqual(networkV1);
 
-    const networkV2 = createNetworkParamsSetPayload({ validatorMiningWindowBlocks: 100n });
+    const networkV2 = createNetworkParamsSetPayload({
+      validatorMiningWindowBlocks: 100n,
+      miningRewardVestingBlocks: 86_400n,
+    });
     expect(networkV2.payloadVersion).toBe(TxPayloadVersion.V2);
     expectHex(encodePayload(networkV2, TxVersion.V1), vectors.payload.networkParamsV2);
     expect(decodePayload(fromHex(vectors.payload.networkParamsV2), TxVersion.V1)).toEqual(networkV2);
@@ -97,6 +102,26 @@ describe('mining economics Java golden vectors', () => {
     expect(payload.payloadVersion).toBe(TxPayloadVersion.V1);
     expectHex(encodePayload(payload, TxVersion.V1), vectors.payload.validatorMiningPolicySet);
     expect(decodePayload(fromHex(vectors.payload.validatorMiningPolicySet), TxVersion.V1)).toEqual(
+      payload
+    );
+  });
+
+  it('structurally round-trips out-of-range network params for node rejection', () => {
+    const payload: NetworkParamsSetPayloadV2 = {
+      payloadType: TxPayloadType.BIP_NETWORK_PARAMS_SET,
+      payloadVersion: TxPayloadVersion.V2,
+      blockReward: null,
+      blockRewardPoolAddress: null,
+      targetMiningTimeMs: null,
+      asertHalfLifeBlocks: null,
+      minDifficulty: null,
+      minTxBaseFee: null,
+      minTxByteFee: null,
+      validatorMiningWindowBlocks: 10_001n,
+      miningRewardVestingBlocks: null,
+    };
+    expectHex(encodePayload(payload, TxVersion.V1), vectors.payload.networkParamsV2OutOfRange);
+    expect(decodePayload(fromHex(vectors.payload.networkParamsV2OutOfRange), TxVersion.V1)).toEqual(
       payload
     );
   });
@@ -130,6 +155,7 @@ describe('mining economics Java golden vectors', () => {
     expect(v1.version).toBe(NetworkParamsStateVersion.V1);
     expect(v1.currentUnlimitedValidatorCount).toBe(v1.currentValidatorCount);
     expect(v1.validatorMiningWindowBlocks).toBe(0n);
+    expect(v1.miningRewardVestingBlocks).toBe(0n);
     expect(v1.limitedValidatorMiningSharesBps).toEqual([]);
     expectHex(encodeNetworkParamsState(v1), vectors.state.networkParamsV1);
 
@@ -197,6 +223,10 @@ describe('mining economics consensus validation', () => {
     expect(() => validateMiningWindowSize(10_000n)).not.toThrow();
     expect(() => validateMiningWindowSize(99n)).toThrow();
     expect(() => validateMiningWindowSize(10_001n)).toThrow();
+    expect(() => validateMiningRewardVestingBlocks(0n)).not.toThrow();
+    expect(() => validateMiningRewardVestingBlocks(1_000_000n)).not.toThrow();
+    expect(() => validateMiningRewardVestingBlocks(-1n)).toThrow();
+    expect(() => validateMiningRewardVestingBlocks(1_000_001n)).toThrow();
     expect(() => validateLimitedPolicyForWindow(100n, 100n)).not.toThrow();
     expect(() => validateLimitedPolicyForWindow(100n, 99n)).toThrow(
       'must allow at least one block'
@@ -383,6 +413,7 @@ function networkParamsV2(): NetworkParamsState {
     currentUnlimitedValidatorCount: 2n,
     validatorMiningWindowBlocks: 1_000n,
     limitedValidatorMiningSharesBps: [1_000n],
+    miningRewardVestingBlocks: 86_400n,
     updatedAtBlockHeight: 5n,
     updatedAtTimestamp: 1_000n,
   };

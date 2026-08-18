@@ -21,9 +21,9 @@ export type { Address, Hash, Hex, Signature } from './types';
 // Enums
 // ============================================
 export {
-    BipType, bipTypeFromCode, BipVoteType, bipVoteTypeFromCode, MiningLimitMode,
+    AccountBalanceStateVersion, BipType, bipTypeFromCode, BipVoteType, bipVoteTypeFromCode, MiningLimitMode,
     miningLimitModeFromCode, MiningWindowStateVersion, Network, networkFromCode,
-    NetworkParamsStateVersion, TxPayloadType, txPayloadTypeFromCode, TxPayloadVersion,
+    MiningRewardMaturityStateVersion, NetworkParamsStateVersion, TxPayloadType, txPayloadTypeFromCode, TxPayloadVersion,
     txPayloadVersionFromCode, TxType, txTypeFromCode, TxVersion, txVersionFromCode,
     ValidatorStateVersion
 } from './enums';
@@ -75,11 +75,15 @@ export { encodeTx, TxEncoder } from './serialization/TxEncoder';
 // Consensus rules and state serialization
 // ============================================
 export {
-    BASIS_POINTS_DENOMINATOR, MAX_VALIDATOR_MINING_SHARE_BPS,
+    BASIS_POINTS_DENOMINATOR, MAX_MINING_REWARD_VESTING_BLOCKS, MAX_VALIDATOR_MINING_SHARE_BPS,
     MAX_VALIDATOR_MINING_WINDOW_BLOCKS, MIN_VALIDATOR_MINING_WINDOW_BLOCKS,
-    validateLimitedPolicyForWindow, validateMiningPolicy, validateMiningWindowSize
+    validateLimitedPolicyForWindow, validateMiningPolicy, validateMiningRewardVestingBlocks,
+    validateMiningWindowSize
 } from './consensus/MiningConsensusRules';
-export type { MiningWindowState, NetworkParamsState, ValidatorState } from './state/types';
+export type {
+    AccountBalanceState, MiningRewardMaturityState, MiningWindowState, NetworkParamsState,
+    ValidatorState
+} from './state/types';
 export {
     decodeValidatorState, encodeValidatorState, VALIDATOR_STATE_ZERO
 } from './state/ValidatorStateCodec';
@@ -90,6 +94,18 @@ export {
     appendMiningWindow, createEmptyMiningWindowState, decodeMiningWindowState,
     encodeMiningWindowState, MINING_WINDOW_STATE_ZERO, validateMiningWindowState
 } from './state/MiningWindowStateCodec';
+export {
+    ACCOUNT_BALANCE_STATE_ZERO, ACCOUNT_BALANCE_STATE_ZERO_V2,
+    burnIncludingLockedMiningReward, creditAccountBalance, creditLockedMiningReward,
+    debitAccountBalance, decodeAccountBalanceState, encodeAccountBalanceState, spendableBalance,
+    unlockMiningReward, upgradeAccountBalanceToV2,
+    validateAccountBalanceState
+} from './state/AccountBalanceStateCodec';
+export {
+    addMiningRewardMaturity, createMiningRewardMaturityState,
+    decodeMiningRewardMaturityState, encodeMiningRewardMaturityState,
+    MINING_REWARD_MATURITY_STATE_ZERO, validateMiningRewardMaturityState
+} from './state/MiningRewardMaturityStateCodec';
 
 // ============================================
 // Utilities

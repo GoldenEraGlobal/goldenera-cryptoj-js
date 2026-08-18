@@ -185,6 +185,7 @@ export interface NetworkParamsSetPayloadV2 extends TxPayload {
   readonly minTxBaseFee: bigint | null;
   readonly minTxByteFee: bigint | null;
   readonly validatorMiningWindowBlocks: bigint | null;
+  readonly miningRewardVestingBlocks: bigint | null;
 }
 
 export type NetworkParamsSetPayload = NetworkParamsSetPayloadV1 | NetworkParamsSetPayloadV2;

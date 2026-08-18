@@ -1,6 +1,7 @@
 import { NetworkParamsStateVersion } from '../enums';
 import {
   validateLimitedPolicyForWindow,
+  validateMiningRewardVestingBlocks,
   validateMiningWindowSize,
 } from '../consensus/MiningConsensusRules';
 import { RLPWriter } from '../serialization/rlp';
@@ -30,6 +31,7 @@ export const NETWORK_PARAMS_STATE_ZERO: NetworkParamsState = Object.freeze({
   currentValidatorCount: 0n,
   currentUnlimitedValidatorCount: 0n,
   validatorMiningWindowBlocks: 0n,
+  miningRewardVestingBlocks: 0n,
   limitedValidatorMiningSharesBps: Object.freeze([]) as readonly bigint[],
   updatedAtBlockHeight: -(1n << 63n),
   updatedAtTimestamp: 0n,
@@ -41,6 +43,7 @@ export function encodeNetworkParamsState(state: NetworkParamsState): Uint8Array 
   }
   if (state.version === NetworkParamsStateVersion.V2) {
     validateMiningWindowSize(state.validatorMiningWindowBlocks);
+    validateMiningRewardVestingBlocks(state.miningRewardVestingBlocks);
     validateUnlimitedValidatorCount(
       state.currentValidatorCount,
       state.currentUnlimitedValidatorCount
@@ -75,6 +78,7 @@ export function encodeNetworkParamsState(state: NetworkParamsState): Uint8Array 
         listWriter.writeLongScalar(bps);
       }
     });
+    writer.writeLongScalar(state.miningRewardVestingBlocks);
   }
   return writer.encode();
 }
@@ -83,7 +87,7 @@ export function decodeNetworkParamsState(data: Uint8Array): NetworkParamsState {
   const decoded = decodeRlpTopLevelList(data, 'NetworkParamsState');
   const version = Number(bigintAt(decoded, 0, 'NetworkParamsState version')) as NetworkParamsStateVersion;
   const expectedFields =
-    version === NetworkParamsStateVersion.V1 ? 14 : version === NetworkParamsStateVersion.V2 ? 17 : 0;
+    version === NetworkParamsStateVersion.V1 ? 14 : version === NetworkParamsStateVersion.V2 ? 18 : 0;
   if (decoded.length !== expectedFields) {
     throw new Error(`Invalid NetworkParamsState field count for version ${version}: ${decoded.length}`);
   }
@@ -112,6 +116,7 @@ export function decodeNetworkParamsState(data: Uint8Array): NetworkParamsState {
       ...common,
       currentUnlimitedValidatorCount: currentValidatorCount,
       validatorMiningWindowBlocks: 0n,
+      miningRewardVestingBlocks: 0n,
       limitedValidatorMiningSharesBps: Object.freeze([]) as readonly bigint[],
     };
   }
@@ -122,7 +127,9 @@ export function decodeNetworkParamsState(data: Uint8Array): NetworkParamsState {
     16,
     'limitedValidatorMiningSharesBps'
   ).map((_, index, shares) => longAt(shares, index, `limitedValidatorMiningSharesBps[${index}]`));
+  const miningRewardVestingBlocks = longAt(decoded, 17, 'miningRewardVestingBlocks');
   validateMiningWindowSize(validatorMiningWindowBlocks);
+  validateMiningRewardVestingBlocks(miningRewardVestingBlocks);
   validateUnlimitedValidatorCount(currentValidatorCount, currentUnlimitedValidatorCount);
   validateLimitedValidatorMiningShares(
     validatorMiningWindowBlocks,
@@ -134,6 +141,7 @@ export function decodeNetworkParamsState(data: Uint8Array): NetworkParamsState {
     ...common,
     validatorMiningWindowBlocks,
     currentUnlimitedValidatorCount,
+    miningRewardVestingBlocks,
     limitedValidatorMiningSharesBps: Object.freeze([...limitedValidatorMiningSharesBps]),
   };
 }

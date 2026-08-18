@@ -15,7 +15,11 @@ export type {
 } from './types';
 
 import { MiningLimitMode, BipVoteType, TxPayloadType, TxPayloadVersion } from '../../enums';
-import { validateMiningPolicy, validateMiningWindowSize } from '../../consensus/MiningConsensusRules';
+import {
+  validateMiningPolicy,
+  validateMiningRewardVestingBlocks,
+  validateMiningWindowSize,
+} from '../../consensus/MiningConsensusRules';
 import type { Address } from '../../types';
 import type {
   AddressAliasAddPayload,
@@ -240,10 +244,15 @@ export function createNetworkParamsSetPayload(params: {
   minTxBaseFee?: bigint | null;
   minTxByteFee?: bigint | null;
   validatorMiningWindowBlocks?: bigint | null;
+  miningRewardVestingBlocks?: bigint | null;
 }): NetworkParamsSetPayloadV2 {
   const validatorMiningWindowBlocks = params.validatorMiningWindowBlocks ?? null;
+  const miningRewardVestingBlocks = params.miningRewardVestingBlocks ?? null;
   if (validatorMiningWindowBlocks !== null) {
     validateMiningWindowSize(validatorMiningWindowBlocks);
+  }
+  if (miningRewardVestingBlocks !== null) {
+    validateMiningRewardVestingBlocks(miningRewardVestingBlocks);
   }
   return {
     payloadType: TxPayloadType.BIP_NETWORK_PARAMS_SET,
@@ -256,6 +265,7 @@ export function createNetworkParamsSetPayload(params: {
     minTxBaseFee: params.minTxBaseFee ?? null,
     minTxByteFee: params.minTxByteFee ?? null,
     validatorMiningWindowBlocks,
+    miningRewardVestingBlocks,
   };
 }
 

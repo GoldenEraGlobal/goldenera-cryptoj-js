@@ -4,6 +4,7 @@ export const BASIS_POINTS_DENOMINATOR = 10_000n;
 export const MAX_VALIDATOR_MINING_SHARE_BPS = 4_000n;
 export const MIN_VALIDATOR_MINING_WINDOW_BLOCKS = 100n;
 export const MAX_VALIDATOR_MINING_WINDOW_BLOCKS = 10_000n;
+export const MAX_MINING_REWARD_VESTING_BLOCKS = 1_000_000n;
 
 export function validateMiningPolicy(
   mode: MiningLimitMode,
@@ -32,6 +33,17 @@ export function validateMiningWindowSize(validatorMiningWindowBlocks: bigint): v
   ) {
     throw new Error(
       `validatorMiningWindowBlocks must be in range ${MIN_VALIDATOR_MINING_WINDOW_BLOCKS}..${MAX_VALIDATOR_MINING_WINDOW_BLOCKS}`
+    );
+  }
+}
+
+export function validateMiningRewardVestingBlocks(miningRewardVestingBlocks: bigint): void {
+  if (
+    miningRewardVestingBlocks < 0n ||
+    miningRewardVestingBlocks > MAX_MINING_REWARD_VESTING_BLOCKS
+  ) {
+    throw new Error(
+      `miningRewardVestingBlocks must be in range 0..${MAX_MINING_REWARD_VESTING_BLOCKS}`
     );
   }
 }

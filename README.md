@@ -221,7 +221,12 @@ createValidatorMiningPolicySetPayload(validatorAddress, {
   miningLimitMode: MiningLimitMode.UNLIMITED,
   maxMiningShareBps: 0n,
 })
-createNetworkParamsSetPayload({ blockReward?, validatorMiningWindowBlocks?, ... }) // Latest V2
+createNetworkParamsSetPayload({
+  blockReward?,
+  validatorMiningWindowBlocks?,
+  miningRewardVestingBlocks?,
+  ...
+}) // Latest V2
 createLegacyNetworkParamsSetPayload({ blockReward?, ... }) // Historical implicit V1
 ```
 

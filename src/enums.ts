@@ -72,6 +72,15 @@ export enum MiningWindowStateVersion {
   V1 = 1,
 }
 
+export enum AccountBalanceStateVersion {
+  V1 = 1,
+  V2 = 2,
+}
+
+export enum MiningRewardMaturityStateVersion {
+  V1 = 1,
+}
+
 // ============================================
 // TxType
 // ============================================

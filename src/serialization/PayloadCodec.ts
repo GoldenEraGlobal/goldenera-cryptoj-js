@@ -12,7 +12,9 @@ import {
   txPayloadVersionFromCode,
   TxVersion,
 } from '../enums';
-import { validateMiningPolicy, validateMiningWindowSize } from '../consensus/MiningConsensusRules';
+import {
+  validateMiningPolicy,
+} from '../consensus/MiningConsensusRules';
 import type { TxPayload } from '../tx/payloads/TxPayload';
 import type { AnyTxPayload } from '../tx/payloads/types';
 import type { Address } from '../types';
@@ -154,10 +156,8 @@ export function encodePayload(payload: TxPayload | null, _version: TxVersion): U
       writer.writeOptionalWeiScalar(p.minTxBaseFee);
       writer.writeOptionalWeiScalar(p.minTxByteFee);
       if (p.payloadVersion === TxPayloadVersion.V2) {
-        if (p.validatorMiningWindowBlocks !== null) {
-          validateMiningWindowSize(p.validatorMiningWindowBlocks);
-        }
         writer.writeOptionalLongScalar(p.validatorMiningWindowBlocks);
+        writer.writeOptionalLongScalar(p.miningRewardVestingBlocks);
       }
       break;
     }
@@ -279,7 +279,7 @@ export function decodePayload(data: Uint8Array | unknown[], _version: TxVersion)
       throw new Error(`Invalid RLP field count ${data.length} for BIP_VALIDATOR_ADD`);
     }
   } else if (type === TxPayloadType.BIP_NETWORK_PARAMS_SET) {
-    if (data.length === 10) {
+    if (data.length === 11) {
       payloadVersion = txPayloadVersionFromCode(decodeInt(data[1] as Uint8Array));
       fieldOffset = 2;
       if (payloadVersion !== TxPayloadVersion.V2) {
@@ -423,10 +423,8 @@ export function decodePayload(data: Uint8Array | unknown[], _version: TxVersion)
       };
       if (payloadVersion === TxPayloadVersion.V1) return { ...base, payloadVersion };
       const validatorMiningWindowBlocks = decodeOptionalBigint(data[fieldOffset + 7]);
-      if (validatorMiningWindowBlocks !== null) {
-        validateMiningWindowSize(validatorMiningWindowBlocks);
-      }
-      return { ...base, payloadVersion, validatorMiningWindowBlocks };
+      const miningRewardVestingBlocks = decodeOptionalBigint(data[fieldOffset + 8]);
+      return { ...base, payloadVersion, validatorMiningWindowBlocks, miningRewardVestingBlocks };
     }
 
     case TxPayloadType.BIP_VALIDATOR_MINING_POLICY_SET: {

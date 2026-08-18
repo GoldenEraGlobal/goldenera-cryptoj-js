@@ -1,4 +1,6 @@
 import type {
+  AccountBalanceStateVersion,
+  MiningRewardMaturityStateVersion,
   MiningLimitMode,
   MiningWindowStateVersion,
   NetworkParamsStateVersion,
@@ -36,10 +38,28 @@ export interface NetworkParamsState {
   readonly currentUnlimitedValidatorCount: bigint;
   /** V1 decoders expose zero because this field was absent from V1. */
   readonly validatorMiningWindowBlocks: bigint;
+  /** V1 decoders expose zero because this field was absent from V1. */
+  readonly miningRewardVestingBlocks: bigint;
   /** Sorted multiset containing one BPS value for each active LIMITED validator. */
   readonly limitedValidatorMiningSharesBps: readonly bigint[];
   readonly updatedAtBlockHeight: bigint;
   readonly updatedAtTimestamp: bigint;
+}
+
+export interface AccountBalanceState {
+  readonly version: AccountBalanceStateVersion;
+  readonly balance: bigint;
+  /** V1 decoders expose zero because this field was absent from V1. */
+  readonly lockedMiningReward: bigint;
+  /** V1 decoders expose zero because this field was absent from V1. */
+  readonly pendingMiningRewardCancellation: bigint;
+  readonly updatedAtBlockHeight: bigint;
+  readonly updatedAtTimestamp: bigint | null;
+}
+
+export interface MiningRewardMaturityState {
+  readonly version: MiningRewardMaturityStateVersion;
+  readonly rewards: ReadonlyMap<Address, bigint>;
 }
 
 export interface MiningWindowState {
