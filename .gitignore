@@ -19,3 +19,8 @@ Thumbs.db
 *.log
 
 target/
+._*
+.agents
+.zed
+CLAUDE.md
+AGENTS.md
