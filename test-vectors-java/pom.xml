@@ -16,7 +16,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <goldenera-cryptoj.version>0.0.2</goldenera-cryptoj.version>
+        <goldenera-cryptoj.version>0.0.5</goldenera-cryptoj.version>
     </properties>
 
     <repositories>
