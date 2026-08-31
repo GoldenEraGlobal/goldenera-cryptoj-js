@@ -7,6 +7,9 @@ import { secp256k1 } from '@noble/curves/secp256k1';
 import { HDKey } from '@scure/bip32';
 import { generateMnemonic as bip39GenerateMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
+import { pbkdf2 } from '@noble/hashes/pbkdf2';
+import { sha512 } from '@noble/hashes/sha512';
+import { utf8ToBytes } from '@noble/hashes/utils';
 import { keccak256 } from 'viem';
 
 import type { Address, Hash, Hex, Signature } from '../types';
@@ -88,12 +91,15 @@ export class PrivateKey {
    * @returns PrivateKey for the derived account
    */
   static fromMnemonic(mnemonic: string, password = '', accountIndex = 0): PrivateKey {
-    if (!validateMnemonic(mnemonic, wordlist)) {
-      throw new Error('Invalid mnemonic phrase');
-    }
+    if (mnemonic.trim().length === 0) throw new Error('Mnemonic is required to generate a seed');
 
     // Generate seed from mnemonic
-    const seed = mnemonicToSeedSync(mnemonic, password);
+    const seed = pbkdf2(
+      sha512,
+      utf8ToBytes(mnemonic),
+      utf8ToBytes(`mnemonic${password}`),
+      { c: 2048, dkLen: 64 }
+    );
 
     // Derive master key
     const masterKey = HDKey.fromMasterSeed(seed);
@@ -105,6 +111,17 @@ export class PrivateKey {
       throw new Error('Failed to derive private key');
     }
 
+    return new PrivateKey(derivedKey.privateKey);
+  }
+
+  /** Recover keys created by CryptoJ JS 0.4.0 and earlier with a Unicode passphrase. */
+  static fromMnemonicLegacyJs(mnemonic: string, password = '', accountIndex = 0): PrivateKey {
+    if (!validateMnemonic(mnemonic, wordlist)) {
+      throw new Error('Invalid mnemonic phrase');
+    }
+    const masterKey = HDKey.fromMasterSeed(mnemonicToSeedSync(mnemonic, password));
+    const derivedKey = masterKey.derive(`${BIP44_PATH}/${accountIndex}`);
+    if (!derivedKey.privateKey) throw new Error('Failed to derive private key');
     return new PrivateKey(derivedKey.privateKey);
   }
 
@@ -223,6 +240,9 @@ export class PrivateKey {
  * @returns Recovered address
  */
 export function recoverAddress(messageHash: Hash, signature: Signature): Address {
+  if (!isSignatureStructurallyValid(signature)) {
+    throw new Error('Signature is structurally invalid');
+  }
   const hashBytes = hexToBytes(messageHash);
   const sigBytes = hexToBytes(signature);
 
@@ -258,6 +278,7 @@ export function recoverAddress(messageHash: Hash, signature: Signature): Address
  */
 export function validateSignature(messageHash: Hash, signature: Signature, expectedAddress: Address): boolean {
   try {
+    if (!isSignatureStructurallyValid(signature)) return false;
     const recovered = recoverAddress(messageHash, signature);
     return recovered.toLowerCase() === expectedAddress.toLowerCase();
   } catch {

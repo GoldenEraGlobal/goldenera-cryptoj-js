@@ -77,20 +77,17 @@ export const Amounts = {
       throw new Error(`Decimals must be between 0 and ${DECIMALS.MAX}, got: ${decimals}`);
     }
 
-    // Handle negative values
-    const isNegative = tokensDecimal.startsWith('-');
-    const cleanValue = isNegative ? tokensDecimal.slice(1) : tokensDecimal;
-
-    // Split into integer and fractional parts
-    const parts = cleanValue.split('.');
-    const integerPart = parts[0] || '0';
-    const fractionalPart = (parts[1] || '').slice(0, decimals).padEnd(decimals, '0');
-
-    // Combine and parse
-    const combined = integerPart + fractionalPart;
-    const result = BigInt(combined);
-
-    return isNegative ? -result : result;
+    if (tokensDecimal.startsWith('-')) throw new Error('Amount must be positive');
+    const unscaled = tokensDecimal.replaceAll('.', '');
+    if (!/^\+?\d+$/.test(unscaled)) throw new Error('Invalid token amount');
+    let result = BigInt(unscaled);
+    const decimalPlaces = tokensDecimal.includes('.')
+      ? tokensDecimal.length - tokensDecimal.indexOf('.') - 1
+      : 0;
+    const scaleFactor = decimals - decimalPlaces;
+    if (scaleFactor > 0) result *= 10n ** BigInt(scaleFactor);
+    else if (scaleFactor < 0) result /= 10n ** BigInt(-scaleFactor);
+    return result;
   },
 
   /**

@@ -16,7 +16,7 @@ export interface Tx {
   readonly version: TxVersion;
 
   /** Transaction timestamp in milliseconds */
-  readonly timestamp: number;
+  readonly timestamp: bigint;
 
   /** Transaction type (TRANSFER, BIP_CREATE, BIP_VOTE) */
   readonly type: TxType;
@@ -25,7 +25,7 @@ export interface Tx {
   readonly network: Network;
 
   /** Account nonce (sequence number) */
-  readonly nonce: bigint;
+  readonly nonce: bigint | null;
 
   /** Recipient address (for TRANSFER) */
   readonly recipient: Address | null;
@@ -49,12 +49,12 @@ export interface Tx {
   readonly referenceHash: Hash | null;
 
   /** ECDSA signature */
-  readonly signature: Signature;
+  readonly signature: Signature | null;
 
   // --- CALCULATED / CACHED DATA ---
 
   /** Sender address (recovered from signature) */
-  readonly sender: Address;
+  readonly sender: Address | null;
 
   /** Transaction hash (Keccak-256 of RLP data) */
   readonly hash: Hash;
@@ -84,7 +84,7 @@ export interface TxInput {
   version?: TxVersion;
 
   /** Timestamp in ms (default: Date.now()) */
-  timestamp?: number;
+  timestamp?: bigint | number | Date;
 
   /** Recipient address (required for TRANSFER) */
   recipient?: Address | null;
@@ -110,4 +110,9 @@ export interface TxInput {
  */
 export interface UnsignedTx extends Omit<Tx, 'signature' | 'sender' | 'hash' | 'size'> {
   readonly signature: null;
+}
+
+export interface SignedTx extends Tx {
+  readonly signature: Signature;
+  readonly sender: Address;
 }

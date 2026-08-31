@@ -47,7 +47,7 @@ function encodeTxV1(tx: Tx | UnsignedTx, includeSignature: boolean): Uint8Array 
   writer.writeIntScalar(tx.version);
 
   // Timestamp (milliseconds as long scalar)
-  writer.writeLongScalar(BigInt(tx.timestamp));
+  writer.writeLongScalar(tx.timestamp);
 
   // Type
   writer.writeIntScalar(tx.type);

@@ -401,15 +401,15 @@ describe('Compatibility Tests', () => {
       expect(tx.version).toBe(TxVersion.V1);
       expect(tx.type).toBe(TxType.TRANSFER);
       expect(tx.network).toBe(Network.MAINNET);
-      expect(tx.timestamp).toBe(Number(vector.timestamp));
+      expect(tx.timestamp).toBe(vector.timestamp);
       expect(tx.nonce).toBe(1n);
       expect(tx.recipient?.toLowerCase()).toBe('0x1111111111111111111111111111111111111111');
       expect(tx.tokenAddress?.toLowerCase()).toBe(NATIVE_TOKEN.toLowerCase());
       expect(tx.amount).toBe(Amounts.tokens(100n));
       expect(tx.fee).toBe(Amounts.parseTokens('0.001'));
-      expect(tx.signature.toLowerCase()).toBe(vector.expected.signature.toLowerCase());
+      expect(tx.signature!.toLowerCase()).toBe(vector.expected.signature.toLowerCase());
       expect(tx.hash.toLowerCase()).toBe(vector.expected.txHash.toLowerCase());
-      expect(tx.sender.toLowerCase()).toBe(senderAddress);
+      expect(tx.sender!.toLowerCase()).toBe(senderAddress);
     });
 
     it('should decode transfer_with_message from RLP', () => {
@@ -468,7 +468,7 @@ describe('Compatibility Tests', () => {
       for (const vector of testVectors) {
         const decoded = decodeTx(vector.expected.rlpWithSig as Hex);
         expect(decoded.hash.toLowerCase()).toBe(vector.expected.txHash.toLowerCase());
-        expect(decoded.signature.toLowerCase()).toBe(vector.expected.signature.toLowerCase());
+        expect(decoded.signature!.toLowerCase()).toBe(vector.expected.signature.toLowerCase());
         expect(decoded.size).toBe(vector.expected.size);
       }
     });

@@ -12,7 +12,7 @@ export {
     ADDRESS_SIZE, bigintToHex, bytesToHex, HASH_SIZE, hexToBigint, hexToBytes, isAddress,
     isHash, isHex, isSignature, NATIVE_TOKEN, padHex, SIGNATURE_SIZE, toAddress,
     toHash,
-    toSignature, ZERO_ADDRESS,
+    toSignature, ZERO_ADDRESS, ZERO_SIGNATURE,
     ZERO_HASH
 } from './types';
 export type { Address, Hash, Hex, Signature } from './types';
@@ -36,7 +36,7 @@ export { hash, isSignatureStructurallyValid, PrivateKey, recoverAddress, validat
 // ============================================
 // Transaction
 // ============================================
-export type { Tx, TxInput, UnsignedTx } from './tx/Tx';
+export type { SignedTx, Tx, TxInput, UnsignedTx } from './tx/Tx';
 export { TxBuilder, TxBuilderError } from './tx/TxBuilder';
 
 // ============================================

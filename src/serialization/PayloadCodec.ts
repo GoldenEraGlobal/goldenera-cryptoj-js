@@ -61,7 +61,7 @@ export function encodePayload(payload: TxPayload | null, _version: TxVersion): U
       const p = payload as AnyTxPayload & { payloadType: TxPayloadType.BIP_TOKEN_MINT };
       writer.writeBytes(hexToBytes(p.tokenAddress));
       writer.writeBytes(hexToBytes(p.recipient));
-      writer.writeBigIntegerScalar(p.amount);
+      writer.writeWeiScalar(p.amount);
       break;
     }
 
@@ -69,7 +69,7 @@ export function encodePayload(payload: TxPayload | null, _version: TxVersion): U
       const p = payload as AnyTxPayload & { payloadType: TxPayloadType.BIP_TOKEN_BURN };
       writer.writeBytes(hexToBytes(p.tokenAddress));
       writer.writeBytes(hexToBytes(p.sender));
-      writer.writeBigIntegerScalar(p.amount);
+      writer.writeWeiScalar(p.amount);
       break;
     }
 

@@ -30,7 +30,7 @@ import { Network, TxType, TxVersion } from '../enums';
 import type { Address, Hash, Hex, Signature } from '../types';
 import { NATIVE_TOKEN, hexToBytes } from '../types';
 import { hashForSigning, hashTx, sizeTx } from '../utils/TxUtil';
-import type { Tx, TxInput, UnsignedTx } from './Tx';
+import type { SignedTx, Tx, TxInput, UnsignedTx } from './Tx';
 import type { TxPayload } from './payloads/TxPayload';
 
 /**
@@ -48,7 +48,7 @@ export class TxBuilderError extends Error {
  */
 export class TxBuilder {
   private _version: TxVersion = TxVersion.V1;
-  private _timestamp: number = Date.now();
+  private _timestamp: bigint = BigInt(Date.now());
   private _type: TxType | null = null;
   private _network: Network | null = null;
   private _nonce: bigint | null = null;
@@ -79,7 +79,7 @@ export class TxBuilder {
     builder._nonce = input.nonce;
 
     if (input.version !== undefined) builder._version = input.version;
-    if (input.timestamp !== undefined) builder._timestamp = input.timestamp;
+    if (input.timestamp !== undefined) builder.timestamp(input.timestamp);
     if (input.fee !== undefined) builder._fee = input.fee;
     if (input.recipient !== undefined) builder._recipient = input.recipient;
     if (input.tokenAddress !== undefined) builder._tokenAddress = input.tokenAddress;
@@ -114,8 +114,12 @@ export class TxBuilder {
   }
 
   /** Set timestamp in milliseconds (default: Date.now()) */
-  timestamp(timestamp: number | Date): this {
-    this._timestamp = typeof timestamp === 'number' ? timestamp : timestamp.getTime();
+  timestamp(timestamp: bigint | number | Date): this {
+    const value = timestamp instanceof Date ? timestamp.getTime() : timestamp;
+    if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+      throw new TxBuilderError('Timestamp must be a safe integer when provided as number');
+    }
+    this._timestamp = BigInt(value);
     return this;
   }
 
@@ -274,7 +278,7 @@ export class TxBuilder {
    * @param privateKey - Private key to sign with
    * @returns Fully signed transaction
    */
-  sign(privateKey: PrivateKey): Tx {
+  sign(privateKey: PrivateKey): SignedTx {
     const unsignedTx = this.buildUnsigned();
 
     // Calculate hash for signing
@@ -286,7 +290,7 @@ export class TxBuilder {
     // Build signed transaction
     const sender = privateKey.getAddress();
 
-    const tx: Tx = {
+    const tx: SignedTx = {
       ...unsignedTx,
       signature,
       sender,

@@ -35,6 +35,7 @@ export type Hex = ViemHex;
 export const ADDRESS_SIZE = 20;
 export const HASH_SIZE = 32;
 export const SIGNATURE_SIZE = 65;
+export const ZERO_SIGNATURE: Signature = `0x${'00'.repeat(SIGNATURE_SIZE)}` as Signature;
 
 export const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000' as Address;
 export const ZERO_HASH: Hash = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hash;

@@ -77,6 +77,21 @@ export function decodeLong(bytes: Uint8Array): bigint {
   return decodeSignedScalar(bytes, 64, 'long');
 }
 
+export function decodeOptionalLong(item: unknown): bigint | null {
+  const value = decodeOptionalElement(item, 'optional long');
+  if (value === null) return null;
+  if (!(value instanceof Uint8Array)) throw new Error('optional long value must be an RLP scalar');
+  return decodeLong(value);
+}
+
+export const MAX_UINT256 = (1n << 256n) - 1n;
+
+export function assertJavaWei(value: bigint): void {
+  if (value < 0n || value > MAX_UINT256) {
+    throw new Error('Wei value is outside Java UInt256 range');
+  }
+}
+
 function encodeSignedScalar(value: bigint | number, bits: 32 | 64, name: string): Uint8Array {
   if (typeof value === 'number' && !Number.isSafeInteger(value)) {
     throw new Error(`${name} scalar must be a safe integer when provided as number`);
@@ -197,12 +212,14 @@ export class RLPWriter {
     if (value === null) {
       this.writeEmptyList();
     } else {
+      assertJavaWei(value);
       this.writeList((w) => w.writeBigIntegerScalar(value));
     }
   }
 
   /** Write Wei as BigInteger scalar */
   writeWeiScalar(value: bigint): void {
+    assertJavaWei(value);
     this.writeBigIntegerScalar(value);
   }
 
